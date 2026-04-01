@@ -23,7 +23,7 @@ const loadLeaflet = () => new Promise((resolve) => {
 // └─────────────────────────────────────────────────────────────┘
 
 // ─── API CONFIG ───
-const API_URL = "http://localhost:3001/api";
+const API_URL = window.location.hostname === "localhost" ? "http://localhost:3001/api" : "https://rush-api.onrender.com/api";
 
 const api = {
   get: async (path, token) => {
