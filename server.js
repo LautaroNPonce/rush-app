@@ -4,7 +4,7 @@ import cors from "cors";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = 3005;
 
 // Mercado Pago client
 const mpClient = new MercadoPagoConfig({
@@ -12,7 +12,7 @@ const mpClient = new MercadoPagoConfig({
   options: { timeout: 5000 },
 });
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors());
 app.use(express.json());
 
 // POST /api/create-preference
@@ -38,22 +38,22 @@ app.post("/api/create-preference", async (req, res) => {
           },
         ],
         back_urls: {
-          success: "http://localhost:5173/?mp_status=success",
-          failure: "http://localhost:5173/?mp_status=failure",
-          pending: "http://localhost:5173/?mp_status=pending",
+          success: `${req.headers.origin || "http://localhost:5173"}/?mp_status=success`,
+          failure: `${req.headers.origin || "http://localhost:5173"}/?mp_status=failure`,
+          pending: `${req.headers.origin || "http://localhost:5173"}/?mp_status=pending`,
         },
         statement_descriptor: "RUSH APP",
         external_reference: `RUSH-${Date.now()}`,
       },
     });
 
-    return res.json({ preference_id: preference.id });
+    return res.json({ preference_id: preference.id, init_point: preference.init_point });
   } catch (err) {
     console.error("Error creando preferencia MP:", err);
     return res.status(500).json({ error: "Error creando preferencia de pago" });
   }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ Rush backend corriendo en http://localhost:${PORT}`);
 });
