@@ -68,7 +68,7 @@ const formatAlbergue = (a) => ({
     price_2h: r.price_2h,
     price_night: r.price_night,
     amenities: (r.room_amenities || []).map(am => am.amenity).join(" · "),
-    available: r.status === "libre" ? r.quantity : 0,
+    available: (r.status === "ocupada" || r.status === "reservada" || r.status === "mantenimiento") ? 0 : (r.quantity || 1),
     popular: (r.room_amenities || []).length >= 3,
     status: r.status,
   })),
@@ -2116,6 +2116,19 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       total: finalTotal,
       expiresAt: Date.now() + 15 * 60 * 1000,
     });
+    // Sync con panel admin vía localStorage
+    const reservaAdmin = {
+      id: Date.now(),
+      room: selectedRoom.name,
+      checkIn: new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
+      duration: `${hours}h`,
+      code: finalCode,
+      amount: finalTotal,
+      status: "pendiente",
+      payMethod: method === "digital" ? "Mercado Pago" : "Efectivo",
+    };
+    const prevAdmin = JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]");
+    localStorage.setItem("rush_admin_reservations", JSON.stringify([reservaAdmin, ...prevAdmin]));
     navigate("confirmation");
   };
 
@@ -2984,8 +2997,10 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
 const DashboardView = ({ rooms, setRooms }) => {
   const occupied = rooms.filter(r => r.status === "ocupada" || r.status === "reservada").length;
   const occupancyPct = Math.round((occupied / rooms.length) * 100);
-  const todayRevenue = RESERVATIONS_DATA.filter(r => r.status !== "completada").reduce((a, r) => a + r.amount, 0);
-  const activeRes = RESERVATIONS_DATA.filter(r => r.status === "en_curso" || r.status === "pendiente" || r.status === "por_vencer").length;
+  const userResAdmin = JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]");
+  const allResAdmin = [...userResAdmin, ...RESERVATIONS_DATA];
+  const todayRevenue = allResAdmin.filter(r => r.status !== "completada").reduce((a, r) => a + r.amount, 0);
+  const activeRes = allResAdmin.filter(r => r.status === "en_curso" || r.status === "pendiente" || r.status === "por_vencer").length;
 
   const toggleRoom = (id) => {
     setRooms(prev => prev.map(r => {
@@ -3065,13 +3080,15 @@ const ReservationsView = () => {
   const [filter, setFilter] = useState("all");
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState(null);
+  const userReservations = JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]");
+  const allReservations = [...userReservations, ...RESERVATIONS_DATA];
   const filters = [
     { key: "all", label: "Todas" },
     { key: "active", label: "Activas" },
     { key: "pending", label: "Pendientes" },
     { key: "done", label: "Historial" },
   ];
-  const filtered = RESERVATIONS_DATA.filter(r => {
+  const filtered = allReservations.filter(r => {
     if (filter === "active") return r.status === "en_curso" || r.status === "por_vencer";
     if (filter === "pending") return r.status === "pendiente";
     if (filter === "done") return r.status === "completada";
@@ -3079,7 +3096,7 @@ const ReservationsView = () => {
   });
 
   const handleVerify = () => {
-    const found = RESERVATIONS_DATA.find(r => r.code === verifyCode);
+    const found = allReservations.find(r => r.code === verifyCode);
     setVerifyResult(found ? { success: true, room: found.room, duration: found.duration } : { success: false });
   };
 
