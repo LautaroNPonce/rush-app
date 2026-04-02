@@ -1180,6 +1180,12 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
     setSubmitting(true);
     setReviewError("");
     try {
+      if (!reviewModal.id) {
+        // Sin ID real de DB: guardamos la reseña localmente como confirmación visual
+        setReviewed(prev => new Set([...prev, reviewModal.albergue_id]));
+        closeReview();
+        return;
+      }
       await api.post("/reviews", {
         albergue_id: reviewModal.albergue_id,
         reservation_id: reviewModal.id,
@@ -1189,7 +1195,15 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
       setReviewed(prev => new Set([...prev, reviewModal.id]));
       closeReview();
     } catch (err) {
-      setReviewError(err.message || "No se pudo enviar la reseña");
+      const msg = err.message || "";
+      if (msg.includes("completada")) {
+        setReviewError("Tu reserva aún está siendo procesada. Volvé a intentarlo en unos minutos.");
+      } else if (msg.includes("Ya dejaste")) {
+        setReviewed(prev => new Set([...prev, reviewModal.id]));
+        closeReview();
+      } else {
+        setReviewError(msg || "No se pudo enviar la reseña");
+      }
     }
     setSubmitting(false);
   };
@@ -1241,14 +1255,14 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
                     Reservar de nuevo
                   </button>
                 )}
-                {token && r.id && r.status === "completada" && !reviewed.has(r.id) && (
+                {token && r.albergue_id && !reviewed.has(r.id || i) && (
                   <button
                     onClick={() => openReview(r)}
                     style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: COLORS.purpleLight, color: COLORS.purple, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONTS.sans }}>
                     Dejar reseña
                   </button>
                 )}
-                {r.id && reviewed.has(r.id) && (
+                {(reviewed.has(r.id) || reviewed.has(r.albergue_id)) && (
                   <div style={{ flex: 1, padding: "8px 0", borderRadius: 10, background: COLORS.greenLight, textAlign: "center" }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.greenDark }}>✓ Reseña enviada</span>
                   </div>
