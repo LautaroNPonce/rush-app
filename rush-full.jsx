@@ -50,18 +50,12 @@ const api = {
 };
 
 // Adaptar formato de la API al formato que esperan los componentes
-const formatAlbergue = (a) => ({
-  id: a.id,
-  name: a.name,
-  address: a.address,
-  zone: a.zone,
-  distance: a.distance || "—",
-  rating: parseFloat(a.rating) || 0,
-  reviews: a.review_count || 0,
-  tags: a.rooms?.[0]?.room_amenities?.map(am => am.amenity).slice(0, 3) || [],
-  lat: a.lat,
-  lng: a.lng,
-  rooms: (a.rooms || []).map(r => ({
+const DEMO_ROOMS_FALLBACK = [
+  { id: "dr1", name: "Clásica", price: 5500, price_2h: 9000, price_night: 18000, amenities: "Wi-Fi · TV · Aire acond.", available: 2, popular: false, status: "libre" },
+  { id: "dr2", name: "Suite", price: 8500, price_2h: 14000, price_night: 25000, amenities: "Jacuzzi · Smart TV · Frigobar", available: 1, popular: true, status: "libre" },
+];
+const formatAlbergue = (a) => {
+  const apiRooms = (a.rooms || []).map(r => ({
     id: r.id,
     name: r.name,
     price: r.price_1h,
@@ -71,8 +65,22 @@ const formatAlbergue = (a) => ({
     available: r.quantity || 1,
     popular: (r.room_amenities || []).length >= 3,
     status: r.status,
-  })),
-});
+  }));
+  const rooms = apiRooms.length > 0 ? apiRooms : DEMO_ROOMS_FALLBACK.map(r => ({ ...r, id: `${a.id}-${r.id}` }));
+  return {
+    id: a.id,
+    name: a.name,
+    address: a.address,
+    zone: a.zone,
+    distance: a.distance || "—",
+    rating: parseFloat(a.rating) || 0,
+    reviews: a.review_count || 0,
+    tags: a.rooms?.[0]?.room_amenities?.map(am => am.amenity).slice(0, 3) || ["Wi-Fi", "TV", "Aire acond."],
+    lat: a.lat,
+    lng: a.lng,
+    rooms,
+  };
+};
 
 const COLORS = {
   purple: "#534AB7",
