@@ -4719,7 +4719,7 @@ const UCheckIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 
 const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
   <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.card, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
-    <div style={{ width: "100%", textAlign: "center", animation: "rushEntry 0.5s ease" }}>
+    <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", textAlign: "center", animation: "rushEntry 0.5s ease" }}>
       <div style={{ width: 88, height: 88, borderRadius: 24, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 38, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
       </div>
@@ -4747,7 +4747,7 @@ const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
 
 const UnifiedAdminWelcome = ({ onBack, onRegister, onLogin }) => (
   <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
-    <div style={{ width: "100%", textAlign: "center", animation: "rushEntry 0.4s ease" }}>
+    <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", textAlign: "center", animation: "rushEntry 0.4s ease" }}>
       <div style={{ width: 80, height: 80, borderRadius: 22, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 34, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
       </div>
@@ -4805,7 +4805,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
   // Forgot password - sent confirmation
   if (showForgot && forgotSent) return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(""); }}>{UBackArrow}</div>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
           <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
@@ -4825,7 +4825,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
   // Forgot password - form
   if (showForgot) return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotError(""); }}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Recuperar contrase\u00f1a"}</h1>
         <p style={{ fontSize: 14, color: UC.textSec, margin: "0 0 28px", lineHeight: 1.6 }}>{"Ingres\u00e1 tu email y te enviaremos un link para restablecer tu contrase\u00f1a."}</p>
@@ -4842,7 +4842,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
 
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={onBack}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Inici\u00e1 sesi\u00f3n"}</h1>
         <p style={{ fontSize: 14, color: UC.textSec, margin: "0 0 28px" }}>{subtitle}</p>
