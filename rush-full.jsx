@@ -1949,22 +1949,23 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [chatBackTarget, setChatBackTarget] = useState("detail");
   const [activeReservation, setActiveReservation] = useState(null); // current active booking
 
-  // Cargar albergues desde API + albergue del admin si está en localStorage
+  // Cargar albergues desde API — solo Suite Palermo (martin@suitepalermo.com)
   useEffect(() => {
     api.get("/albergues").then(data => {
       const fromApi = (data.albergues || []).map(formatAlbergue);
-      // Si hay un admin logueado en otra tab, incluir su albergue aunque no esté verificado
+      const suitePalermo = fromApi.filter(a => a.name?.toLowerCase().includes("suite palermo") || a.name?.toLowerCase().includes("palermo"));
+      // También incluir el albergue del admin desde localStorage si no está en la lista
       try {
         const adminRaw = localStorage.getItem("rush_admin_albergue");
         if (adminRaw) {
           const adminAlbergue = formatAlbergue(JSON.parse(adminRaw));
-          if (adminAlbergue?.id && !fromApi.find(a => a.id === adminAlbergue.id)) {
-            setAlbergues([adminAlbergue, ...fromApi]);
+          if (adminAlbergue?.id && !suitePalermo.find(a => a.id === adminAlbergue.id)) {
+            setAlbergues([adminAlbergue, ...suitePalermo]);
             return;
           }
         }
       } catch { /* ignore */ }
-      setAlbergues(fromApi);
+      setAlbergues(suitePalermo.length > 0 ? suitePalermo : fromApi);
     }).catch(err => console.error("Error cargando albergues:", err));
   }, []);
 
@@ -2231,13 +2232,7 @@ const ROOMS_DATA = [
   { id: 6, name: "VIP", type: "VIP", price1h: 12000, price2h: 20000, priceNight: 35000, status: "mantenimiento", peakEnabled: false, peakPct: 0, reservations: 7, occupancy: 52, revenue: 145000 },
 ];
 
-const RESERVATIONS_DATA = [
-  { id: 1, room: "Clásica 1", checkIn: "14:30", duration: "2h", code: "4821", amount: 13000, status: "en_curso", payMethod: "Mercado Pago" },
-  { id: 2, room: "Suite Premium 1", checkIn: "15:00", duration: "3h", code: "7241", amount: 25500, status: "pendiente", payMethod: "Mercado Pago" },
-  { id: 3, room: "Clásica 2", checkIn: "13:15", duration: "2h", code: "1593", amount: 13000, status: "por_vencer", payMethod: "Efectivo" },
-  { id: 4, room: "Suite Premium 2", checkIn: "16:00", duration: "2h", code: "3847", amount: 17000, status: "pendiente", payMethod: "Mercado Pago" },
-  { id: 5, room: "Clásica 3", checkIn: "11:00", duration: "1h", code: "9120", amount: 6500, status: "completada", payMethod: "Efectivo" },
-];
+const RESERVATIONS_DATA = [];
 
 const DAILY_REVENUE = [
   { day: "Lun", value: 95000 }, { day: "Mar", value: 115000 }, { day: "Mié", value: 82000 },
