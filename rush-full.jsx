@@ -68,7 +68,7 @@ const formatAlbergue = (a) => ({
     price_2h: r.price_2h,
     price_night: r.price_night,
     amenities: (r.room_amenities || []).map(am => am.amenity).join(" · "),
-    available: (r.status === "ocupada" || r.status === "reservada" || r.status === "mantenimiento") ? 0 : (r.quantity || 1),
+    available: r.quantity || 1,
     popular: (r.room_amenities || []).length >= 3,
     status: r.status,
   })),
