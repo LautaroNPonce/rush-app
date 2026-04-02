@@ -101,6 +101,18 @@ const FONTS = {
   display: "'Outfit', 'DM Sans', sans-serif",
 };
 
+// ─── RESPONSIVE ───
+const useWindowSize = () => {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 375);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return w;
+};
+const BP = { sm: 768, md: 1024 }; // sm = tablet, md = desktop
+
 // ALBERGUES se cargan desde la API (ver RushUserApp)
 
 // ---- ICONS ----
@@ -255,6 +267,13 @@ const UserGlobalCSS = () => (
     .rush-popup .leaflet-popup-content { margin: 0; min-width: 200px; }
     .rush-popup .leaflet-popup-tip { background: white; }
     .rush-popup .leaflet-popup-close-button { color: ${COLORS.textSec} !important; font-size: 18px !important; top: 8px !important; right: 10px !important; }
+    @media (min-width: 1024px) {
+      ::-webkit-scrollbar { display: block !important; width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #D0D0D0; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #B0B0B0; }
+      input, textarea { font-size: 14px !important; }
+    }
     .rush-marker-icon { background: ${COLORS.purple}; color: #fff; border-radius: 20px 20px 20px 4px; padding: 4px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(83,74,183,0.35); border: 2px solid #fff; font-family: 'DM Sans', sans-serif; cursor: pointer; transform: translateY(-2px); transition: all 0.15s; }
     .rush-user-dot { width: 16px; height: 16px; border-radius: 50%; background: #378ADD; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(55,138,221,0.18); }
   `}</style>
@@ -269,22 +288,70 @@ const HeartIcon = (c = COLORS.textSec, s = 22, filled = false) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={filled ? c : "none"} stroke={c} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
 );
 
-const BottomNav = ({ active, onNavigate }) => (
-  <div style={S.navBar}>
-    {[
-      { key: "map", icon: (c) => Icons.map(c), label: "Explorar" },
-      { key: "favorites", icon: (c) => HeartIcon(c, 22, active === "favorites"), label: "Favoritos" },
-      { key: "chats", icon: (c) => Icons.chat(c, 22), label: "Mensajes" },
-      { key: "history", icon: (c) => Icons.clock(c), label: "Historial" },
-      { key: "profile", icon: (c) => Icons.user(c), label: "Perfil" },
-    ].map(({ key, icon, label }) => (
-      <div key={key} style={S.navItem(active === key)} onClick={() => onNavigate(key)}>
-        {icon(active === key ? COLORS.purple : COLORS.textSec)}
-        <span style={{ ...S.navLabel, color: active === key ? COLORS.purple : COLORS.textSec }}>{label}</span>
+// ─── DESKTOP SIDEBAR (usuario) ───
+const UserSideNav = ({ active, onNavigate }) => {
+  const NAV = [
+    { key: "map",       label: "Explorar",  icon: (c) => Icons.map(c, 20) },
+    { key: "favorites", label: "Favoritos", icon: (c) => HeartIcon(c, 20, active === "favorites") },
+    { key: "chats",     label: "Mensajes",  icon: (c) => Icons.chat(c, 20) },
+    { key: "history",   label: "Historial", icon: (c) => Icons.clock(c, 20) },
+    { key: "profile",   label: "Perfil",    icon: (c) => Icons.user(c, 20) },
+  ];
+  return (
+    <div style={{ width: 240, background: COLORS.card, borderRight: `1px solid ${COLORS.border}`, position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "28px 24px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: FONTS.display }}>R</span>
+          </div>
+          <div>
+            <p style={{ fontSize: 20, fontWeight: 800, fontFamily: FONTS.display, margin: 0, lineHeight: 1.1 }}>Rush</p>
+            <p style={{ fontSize: 11, color: COLORS.textSec, margin: 0 }}>Tu espacio privado</p>
+          </div>
+        </div>
       </div>
-    ))}
-  </div>
-);
+      <nav style={{ flex: 1, padding: "0 12px", overflowY: "auto" }}>
+        {NAV.map(({ key, label, icon }) => {
+          const on = active === key;
+          return (
+            <div key={key} onClick={() => onNavigate(key)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, cursor: "pointer", marginBottom: 2, background: on ? COLORS.purpleLight : "transparent", transition: "background 0.15s" }}
+              onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#F5F4FE"; }}
+              onMouseLeave={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+              {icon(on ? COLORS.purple : COLORS.textSec)}
+              <span style={{ fontSize: 14, fontWeight: on ? 600 : 500, color: on ? COLORS.purple : COLORS.text }}>{label}</span>
+              {on && <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.purple, marginLeft: "auto" }} />}
+            </div>
+          );
+        })}
+      </nav>
+      <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}` }}>
+        <p style={{ fontSize: 11, color: COLORS.textTer, margin: 0 }}>Rush v1.0 · Argentina</p>
+      </div>
+    </div>
+  );
+};
+
+const BottomNav = ({ active, onNavigate }) => {
+  const w = useWindowSize();
+  if (w >= BP.md) return null;
+  return (
+    <div style={S.navBar}>
+      {[
+        { key: "map", icon: (c) => Icons.map(c), label: "Explorar" },
+        { key: "favorites", icon: (c) => HeartIcon(c, 22, active === "favorites"), label: "Favoritos" },
+        { key: "chats", icon: (c) => Icons.chat(c, 22), label: "Mensajes" },
+        { key: "history", icon: (c) => Icons.clock(c), label: "Historial" },
+        { key: "profile", icon: (c) => Icons.user(c), label: "Perfil" },
+      ].map(({ key, icon, label }) => (
+        <div key={key} style={S.navItem(active === key)} onClick={() => onNavigate(key)}>
+          {icon(active === key ? COLORS.purple : COLORS.textSec)}
+          <span style={{ ...S.navLabel, color: active === key ? COLORS.purple : COLORS.textSec }}>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const AlbergueCard = ({ albergue, onClick }) => {
   const minPrice = Math.min(...albergue.rooms.map(r => r.price));
@@ -361,6 +428,19 @@ const RoomCard = ({ room, onBook }) => (
     </div>
   </div>
 );
+
+// Helper: wrapper centrado para pantallas de formulario en desktop
+const ScreenCard = ({ children, maxWidth = 560 }) => {
+  const w = useWindowSize();
+  if (w < BP.md) return <>{children}</>;
+  return (
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "flex-start", justifyContent: "center", background: COLORS.bg, padding: "40px 24px 60px" }}>
+      <div style={{ width: "100%", maxWidth, background: COLORS.card, borderRadius: 24, border: `1px solid ${COLORS.border}`, boxShadow: "0 4px 32px rgba(0,0,0,0.07)", overflow: "hidden" }}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 // ---- SCREENS ----
 
@@ -489,37 +569,39 @@ const UserLoginScreen = ({ onBack, onLogin, onGoRegister, onForgot }) => {
     } finally { setLoading(false); }
   };
   return (
-    <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, ...S.fadeIn }}>
-      <StatusBar />
-      <div style={{ padding: "8px 20px" }}>
-        <div style={{ cursor: "pointer", marginBottom: 20 }} onClick={onBack}>{Icons.back()}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: FONTS.display, marginBottom: 6 }}>Iniciá sesión</h1>
-        <p style={{ fontSize: 14, color: COLORS.textSec, marginBottom: 28 }}>Ingresá tus datos para continuar</p>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, color: COLORS.textSec, marginBottom: 6, display: "block" }}>Email</label>
-          <div style={{ position: "relative" }}>
-            <input style={{ ...S.input, paddingLeft: 42 }} placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
-            <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.mail()}</div>
-          </div>
-        </div>
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, color: COLORS.textSec, marginBottom: 6, display: "block" }}>Contraseña</label>
-          <div style={{ position: "relative" }}>
-            <input style={{ ...S.input, paddingLeft: 42, paddingRight: 42 }} type={showPass ? "text" : "password"} placeholder="••••••••" value={pass} onChange={e => setPass(e.target.value)} />
-            <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.lock()}</div>
-            <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", cursor: "pointer" }} onClick={() => setShowPass(!showPass)}>
-              {showPass ? Icons.eyeOff() : Icons.eye()}
+    <ScreenCard>
+      <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, ...S.fadeIn }}>
+        <StatusBar />
+        <div style={{ padding: "8px 20px 32px" }}>
+          <div style={{ cursor: "pointer", marginBottom: 20 }} onClick={onBack}>{Icons.back()}</div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: FONTS.display, marginBottom: 6 }}>Iniciá sesión</h1>
+          <p style={{ fontSize: 14, color: COLORS.textSec, marginBottom: 28 }}>Ingresá tus datos para continuar</p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 500, color: COLORS.textSec, marginBottom: 6, display: "block" }}>Email</label>
+            <div style={{ position: "relative" }}>
+              <input style={{ ...S.input, paddingLeft: 42 }} placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+              <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.mail()}</div>
             </div>
           </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ fontSize: 13, fontWeight: 500, color: COLORS.textSec, marginBottom: 6, display: "block" }}>Contraseña</label>
+            <div style={{ position: "relative" }}>
+              <input style={{ ...S.input, paddingLeft: 42, paddingRight: 42 }} type={showPass ? "text" : "password"} placeholder="••••••••" value={pass} onChange={e => setPass(e.target.value)} />
+              <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.lock()}</div>
+              <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", cursor: "pointer" }} onClick={() => setShowPass(!showPass)}>
+                {showPass ? Icons.eyeOff() : Icons.eye()}
+              </div>
+            </div>
+          </div>
+          <p style={{ fontSize: 13, color: COLORS.purple, fontWeight: 500, textAlign: "right", cursor: "pointer", marginBottom: 28 }} onClick={onForgot}>{"¿Olvidaste tu contrase\u00f1a?"}</p>
+          {error && <p style={{ fontSize: 13, color: COLORS.red, marginBottom: 12, padding: "8px 12px", background: COLORS.redLight, borderRadius: 10 }}>{error}</p>}
+          <button style={{ ...S.btn(), opacity: loading ? 0.6 : 1 }} onClick={handleLogin} disabled={loading}>{loading ? "Ingresando..." : "Iniciar sesión"}</button>
+          <p style={{ fontSize: 13, color: COLORS.textSec, textAlign: "center", marginTop: 20 }}>
+            ¿No tenés cuenta? <span style={{ color: COLORS.purple, fontWeight: 600, cursor: "pointer" }} onClick={onGoRegister}>Registrate</span>
+          </p>
         </div>
-        <p style={{ fontSize: 13, color: COLORS.purple, fontWeight: 500, textAlign: "right", cursor: "pointer", marginBottom: 28 }} onClick={onForgot}>{"¿Olvidaste tu contrase\u00f1a?"}</p>
-        {error && <p style={{ fontSize: 13, color: COLORS.red, marginBottom: 12, padding: "8px 12px", background: COLORS.redLight, borderRadius: 10 }}>{error}</p>}
-        <button style={{ ...S.btn(), opacity: loading ? 0.6 : 1 }} onClick={handleLogin} disabled={loading}>{loading ? "Ingresando..." : "Iniciar sesión"}</button>
-        <p style={{ fontSize: 13, color: COLORS.textSec, textAlign: "center", marginTop: 20 }}>
-          ¿No tenés cuenta? <span style={{ color: COLORS.purple, fontWeight: 600, cursor: "pointer" }} onClick={onGoRegister}>Registrate</span>
-        </p>
       </div>
-    </div>
+    </ScreenCard>
   );
 };
 
@@ -761,8 +843,45 @@ const LeafletMap = ({ onSelectAlbergue, albergues = [] }) => {
   );
 };
 
+// LeafletMap desktop (full height, no rounded borders)
+const LeafletMapDesktop = ({ onSelectAlbergue, albergues = [] }) => {
+  const [leafletReady, setLeafletReady] = useState(false);
+  useEffect(() => { loadLeaflet().then(() => setLeafletReady(true)); }, []);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+
+  useEffect(() => {
+    if (!leafletReady || mapInstanceRef.current) return;
+    const L = window.L; if (!L) return;
+    const map = L.map(mapRef.current, { center: [-34.594, -58.405], zoom: 13, zoomControl: true, attributionControl: true });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 }).addTo(map);
+    mapInstanceRef.current = map;
+  }, [leafletReady]);
+
+  useEffect(() => {
+    const L = window.L; if (!L || !mapInstanceRef.current) return;
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+    albergues.forEach(a => {
+      if (!a.lat || !a.lng) return;
+      const minPrice = Math.min(...(a.rooms || []).map(r => r.price || 0));
+      const icon = L.divIcon({ className: "", html: `<div class="rush-marker-icon">$${(minPrice / 1000).toFixed(1)}k/h</div>`, iconAnchor: [0, 0], popupAnchor: [16, -4] });
+      const marker = L.marker([a.lat, a.lng], { icon }).addTo(mapInstanceRef.current);
+      marker.bindPopup(`<div style="padding:10px 12px"><p style="font-weight:700;font-size:14px;margin:0 0 4px">${a.name}</p><p style="font-size:12px;color:#7A7A7A;margin:0 0 8px">${a.address}</p><button onclick="window.__rushSelect('${a.id}')" style="background:#534AB7;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;width:100%">Ver habitaciones</button></div>`, { className: "rush-popup" });
+      markersRef.current.push(marker);
+    });
+    window.__rushSelect = (id) => { const a = albergues.find(x => x.id === id); if (a) onSelectAlbergue(a); };
+    return () => { delete window.__rushSelect; };
+  }, [albergues, leafletReady, onSelectAlbergue]);
+
+  return <div ref={mapRef} style={{ width: "100%", height: "100%" }} />;
+};
+
 // 5. MAP / EXPLORE
 const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation }) => {
+  const w = useWindowSize();
+  const isDesktop = w >= BP.md;
   const [activeFilter, setActiveFilter] = useState("Cerca");
   const [search, setSearch] = useState("");
   const [bannerTimeLeft, setBannerTimeLeft] = useState(0);
@@ -774,29 +893,74 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [activeReservation]);
-  const filters = ["Cerca", "Precio", "Calidad", "Suite", "24hs"];
 
+  const filters = ["Cerca", "Precio", "Calidad", "Suite", "24hs"];
   let filtered = albergues.filter(a =>
     search === "" ||
     a.name.toLowerCase().includes(search.toLowerCase()) ||
     a.address.toLowerCase().includes(search.toLowerCase())
   );
+  if (activeFilter === "Precio") filtered = [...filtered].sort((a, b) => Math.min(...(a.rooms || []).map(r => r.price || 0)) - Math.min(...(b.rooms || []).map(r => r.price || 0)));
+  else if (activeFilter === "Calidad") filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  else if (activeFilter === "Suite") filtered = filtered.filter(a => (a.rooms || []).some(r => /suite|premium|vip/i.test(r.name)));
+  else if (activeFilter === "24hs") filtered = filtered.filter(a => a.rooms?.length > 0);
 
-  // Apply active filter
-  if (activeFilter === "Precio") {
-    filtered = [...filtered].sort((a, b) => {
-      const minA = Math.min(...(a.rooms || []).map(r => r.price || 0));
-      const minB = Math.min(...(b.rooms || []).map(r => r.price || 0));
-      return minA - minB;
-    });
-  } else if (activeFilter === "Calidad") {
-    filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  } else if (activeFilter === "Suite") {
-    filtered = filtered.filter(a => (a.rooms || []).some(r => r.name.toLowerCase().includes("suite") || r.name.toLowerCase().includes("premium") || r.name.toLowerCase().includes("vip")));
-  } else if (activeFilter === "24hs") {
-    filtered = filtered.filter(a => a.tags?.includes("24hs") || a.rooms?.length > 0);
+  const ReservaBanner = () => activeReservation && bannerTimeLeft > 0 ? (
+    <div style={{ margin: "0 0 12px", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purple})`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(83,74,183,0.28)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {Icons.shield("#fff", 16)}
+        <div>
+          <p style={{ fontSize: 10, color: "rgba(255,255,255,0.72)", margin: 0, textTransform: "uppercase", letterSpacing: 1 }}>Reserva activa</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: "1px 0 0" }}>{activeReservation.albergue?.name}</p>
+        </div>
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <p style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0, letterSpacing: 8, fontFamily: FONTS.display }}>{activeReservation.code.split("").join(" ")}</p>
+        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", margin: "1px 0 0" }}>
+          {String(Math.floor(bannerTimeLeft / 60000)).padStart(2, "0")}:{String(Math.floor((bannerTimeLeft % 60000) / 1000)).padStart(2, "0")} restantes
+        </p>
+      </div>
+    </div>
+  ) : null;
+
+  // ── DESKTOP LAYOUT (lista izquierda + mapa derecha) ──
+  if (isDesktop) {
+    return (
+      <div style={{ display: "flex", height: "100dvh", background: COLORS.bg, ...S.fadeIn }}>
+        {/* Left panel — search + list */}
+        <div style={{ width: 400, flexShrink: 0, display: "flex", flexDirection: "column", background: COLORS.bg, borderRight: `1px solid ${COLORS.border}`, height: "100dvh" }}>
+          {/* Header */}
+          <div style={{ padding: "24px 24px 16px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
+            <ReservaBanner />
+            <div style={{ position: "relative" }}>
+              <input style={{ ...S.input, paddingLeft: 42, borderRadius: 14, background: COLORS.bg }} placeholder="Buscar zona o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
+              <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, overflowX: "auto" }}>
+              {filters.map(f => <span key={f} style={S.chip(activeFilter === f)} onClick={() => setActiveFilter(f)}>{f}</span>)}
+            </div>
+          </div>
+          {/* List */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.textSec, marginBottom: 12 }}>{filtered.length} albergues encontrados</p>
+            {filtered.map(a => <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} />)}
+            {filtered.length === 0 && (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                {Icons.search(COLORS.textTer, 36)}
+                <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 10 }}>Sin resultados para "{search}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Right panel — full-height map */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <LeafletMapDesktop onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
+        </div>
+      </div>
+    );
   }
 
+  // ── MOBILE / TABLET LAYOUT ──
   return (
     <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
@@ -811,50 +975,20 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
           </div>
         </div>
       </div>
-      {/* Active reservation banner */}
-      {activeReservation && bannerTimeLeft > 0 && (
-        <div style={{ margin: "0 16px 10px", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purple})`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(83,74,183,0.28)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {Icons.shield("#fff", 16)}
-            <div>
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.72)", margin: 0, textTransform: "uppercase", letterSpacing: 1 }}>Reserva activa</p>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: "1px 0 0", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeReservation.albergue?.name}</p>
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0, letterSpacing: 8, fontFamily: FONTS.display }}>{activeReservation.code.split("").join(" ")}</p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", margin: "1px 0 0" }}>
-              {String(Math.floor(bannerTimeLeft / 60000)).padStart(2, "0")}:{String(Math.floor((bannerTimeLeft % 60000) / 1000)).padStart(2, "0")} restantes
-            </p>
-          </div>
-        </div>
-      )}
-      {/* Search */}
+      <div style={{ padding: "0 16px 10px" }}><ReservaBanner /></div>
       <div style={{ ...S.section }}>
         <div style={{ position: "relative" }}>
-          <input
-            style={{ ...S.input, paddingLeft: 42, borderRadius: 14, background: COLORS.bg }}
-            placeholder="Buscar zona o albergue..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <input style={{ ...S.input, paddingLeft: 42, borderRadius: 14, background: COLORS.bg }} placeholder="Buscar zona o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
           <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
         </div>
       </div>
-      {/* Real Leaflet Map */}
       <LeafletMap onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
-      {/* Filters */}
       <div style={{ display: "flex", gap: 8, padding: "0 20px", marginBottom: 16, overflowX: "auto" }}>
-        {filters.map(f => (
-          <span key={f} style={S.chip(activeFilter === f)} onClick={() => setActiveFilter(f)}>{f}</span>
-        ))}
+        {filters.map(f => <span key={f} style={S.chip(activeFilter === f)} onClick={() => setActiveFilter(f)}>{f}</span>)}
       </div>
-      {/* List */}
       <div style={S.section}>
         <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Cerca de vos</p>
-        {filtered.map(a => (
-          <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} />
-        ))}
+        {filtered.map(a => <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} />)}
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "30px 0" }}>
             {Icons.search(COLORS.textTer, 36)}
@@ -1054,6 +1188,7 @@ const PaymentScreen = ({ albergue, room, onBack, onConfirm }) => {
   const [hours, setHours] = useState(2);
   const total = room.price * hours;
   return (
+    <ScreenCard maxWidth={620}>
     <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, ...S.fadeIn }}>
       <StatusBar />
       <div style={{ padding: "8px 20px" }}>
@@ -1127,6 +1262,7 @@ const PaymentScreen = ({ albergue, room, onBack, onConfirm }) => {
         }
       </div>
     </div>
+    </ScreenCard>
   );
 };
 
@@ -1149,6 +1285,7 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone, code: codePr
   const timerColor = expired ? COLORS.redDark : urgent ? COLORS.amber : COLORS.greenDark;
 
   return (
+    <ScreenCard maxWidth={560}>
     <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card }}>
       <StatusBar />
       <div style={{ padding: "8px 20px", ...S.fadeIn }}>
@@ -1210,49 +1347,56 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone, code: codePr
         <button style={{ ...S.btn(), marginTop: 20 }} onClick={onDone}>Volver al inicio</button>
       </div>
     </div>
+    </ScreenCard>
   );
 };
 
 // 8b. CHATS LIST
-const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) => (
-  <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
-    <StatusBar />
-    <div style={S.header}>
-      <p style={{ fontSize: 24, fontWeight: 700, fontFamily: FONTS.display }}>Mensajes</p>
-      <p style={{ fontSize: 12, color: COLORS.textSec }}>Tus conversaciones</p>
-    </div>
-    <div style={{ padding: "0 16px" }}>
-      {chatAlbergues.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          {Icons.chat(COLORS.textTer, 48)}
-          <p style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, marginTop: 16 }}>Sin mensajes aún</p>
-          <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 6, lineHeight: 1.5 }}>
-            Podés consultar cualquier albergue antes de reservar tocando el ícono de chat en el detalle.
-          </p>
-        </div>
-      ) : (
-        chatAlbergues.map(a => (
-          <div key={a.id} onClick={() => onOpenChat(a)}
-            style={{ background: COLORS.card, borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "border-color 0.15s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = COLORS.purpleMid}
-            onMouseLeave={e => e.currentTarget.style.borderColor = COLORS.border}>
-            <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{(a.name || "A")[0]}</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 2px" }}>{a.name}</p>
-              <p style={{ fontSize: 12, color: COLORS.textSec, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {a.address || "Tocá para ver la conversación"}
-              </p>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textTer} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) => {
+  const w = useWindowSize();
+  const isTablet = w >= BP.sm;
+  return (
+    <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
+      <StatusBar />
+      <div style={{ ...S.header, paddingTop: isTablet ? 32 : undefined }}>
+        <p style={{ fontSize: 24, fontWeight: 700, fontFamily: FONTS.display }}>Mensajes</p>
+        <p style={{ fontSize: 12, color: COLORS.textSec }}>Tus conversaciones</p>
+      </div>
+      <div style={{ padding: "0 16px", maxWidth: isTablet ? 900 : undefined, margin: isTablet ? "0 auto" : undefined }}>
+        {chatAlbergues.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            {Icons.chat(COLORS.textTer, 48)}
+            <p style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, marginTop: 16 }}>Sin mensajes aún</p>
+            <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 6, lineHeight: 1.5 }}>
+              Podés consultar cualquier albergue antes de reservar tocando el ícono de chat en el detalle.
+            </p>
           </div>
-        ))
-      )}
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "repeat(2, 1fr)" : "1fr", gap: 10 }}>
+            {chatAlbergues.map(a => (
+              <div key={a.id} onClick={() => onOpenChat(a)}
+                style={{ background: COLORS.card, borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "border-color 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = COLORS.purpleMid}
+                onMouseLeave={e => e.currentTarget.style.borderColor = COLORS.border}>
+                <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{(a.name || "A")[0]}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 2px" }}>{a.name}</p>
+                  <p style={{ fontSize: 12, color: COLORS.textSec, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {a.address || "Tocá para ver la conversación"}
+                  </p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textTer} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <BottomNav active={activeNav} onNavigate={onNavigate} />
     </div>
-    <BottomNav active={activeNav} onNavigate={onNavigate} />
-  </div>
-);
+  );
+};
 
 // 9. HISTORY
 const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, onRebook }) => {
@@ -1311,22 +1455,25 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
     return <span style={S.badge(s.bg, s.color)}>{s.label}</span>;
   };
 
+  const ww = useWindowSize();
+  const isTablet = ww >= BP.sm;
   return (
     <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
-      <div style={S.header}>
+      <div style={{ ...S.header, paddingTop: isTablet ? 32 : undefined }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Historial</h2>
         <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 2 }}>Tus reservas anteriores</p>
       </div>
-      <div style={S.section}>
+      <div style={{ padding: "0 20px", maxWidth: isTablet ? 1000 : undefined, margin: isTablet ? "0 auto" : undefined }}>
         {reservations.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
             {Icons.clock(COLORS.textTer, 40)}
             <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 12 }}>Todavía no tenés reservas</p>
           </div>
         ) : (
-          reservations.map((r, i) => (
-            <div key={r.id || i} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.08}s both` }}>
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "repeat(2, 1fr)" : "1fr", gap: 10 }}>
+          {reservations.map((r, i) => (
+            <div key={r.id || i} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.08}s both`, marginBottom: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                   <p style={{ fontSize: 15, fontWeight: 600 }}>{r.albergue}</p>
@@ -1361,7 +1508,8 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
                 )}
               </div>
             </div>
-          ))
+          ))}
+          </div>
         )}
       </div>
       <BottomNav active={activeNav} onNavigate={onNavigate} />
@@ -1370,7 +1518,7 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
       {reviewModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
           onClick={(e) => { if (e.target === e.currentTarget) closeReview(); }}>
-          <div style={{ width: 375, maxWidth: "100%", background: COLORS.card, borderRadius: "20px 20px 0 0", padding: "24px 20px 36px", animation: "rushSlideUp 0.3s ease" }}>
+          <div style={{ width: "100%", maxWidth: 480, background: COLORS.card, borderRadius: "20px 20px 0 0", padding: "24px 20px 36px", animation: "rushSlideUp 0.3s ease" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: COLORS.border, margin: "0 auto 20px" }} />
             <h3 style={{ fontSize: 18, fontWeight: 700, fontFamily: FONTS.display, marginBottom: 4 }}>Dejar reseña</h3>
             <p style={{ fontSize: 13, color: COLORS.textSec, marginBottom: 20 }}>{reviewModal.albergue} · {reviewModal.room}</p>
@@ -1428,60 +1576,66 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
 };
 
 // 10. FAVORITES
-const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate }) => (
-  <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
-    <StatusBar />
-    <div style={S.header}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Favoritos</h2>
-      <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 2 }}>Tus albergues guardados</p>
-    </div>
-    <div style={S.section}>
-      {favorites.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "50px 0" }}>
-          <div style={{ marginBottom: 12 }}>{HeartIcon(COLORS.textTer, 44)}</div>
-          <p style={{ fontSize: 15, fontWeight: 500, color: COLORS.textSec, marginBottom: 4 }}>Sin favoritos todavía</p>
-          <p style={{ fontSize: 13, color: COLORS.textTer, lineHeight: 1.5, maxWidth: 240, margin: "0 auto" }}>
-            Tocá el corazón en cualquier albergue para guardarlo acá
-          </p>
-        </div>
-      ) : (
-        favorites.map((a, i) => {
-          const minPrice = Math.min(...a.rooms.map(r => r.price));
-          const totalAvail = a.rooms.reduce((acc, r) => acc + r.available, 0);
-          return (
-            <div key={a.id} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.08}s both`, position: "relative" }}>
-              <div style={{ position: "absolute", top: 12, right: 12, cursor: "pointer", zIndex: 2 }} onClick={(e) => { e.stopPropagation(); onRemoveFavorite(a.id); }}>
-                {HeartIcon(COLORS.red, 20, true)}
-              </div>
-              <div style={{ display: "flex", gap: 12, cursor: "pointer" }} onClick={() => onSelectAlbergue(a)}>
-                <div style={{ width: 72, height: 72, borderRadius: 12, background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, paddingRight: 24 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600 }}>{a.name}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      {Icons.star(COLORS.amber, 12)}
-                      <span style={{ fontSize: 12, fontWeight: 600 }}>{a.rating}</span>
+const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate }) => {
+  const ww = useWindowSize();
+  const isTablet = ww >= BP.sm;
+  return (
+    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
+      <StatusBar />
+      <div style={{ ...S.header, paddingTop: isTablet ? 32 : undefined }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Favoritos</h2>
+        <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 2 }}>Tus albergues guardados</p>
+      </div>
+      <div style={{ padding: "0 20px", maxWidth: isTablet ? 1000 : undefined, margin: isTablet ? "0 auto" : undefined }}>
+        {favorites.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "50px 0" }}>
+            <div style={{ marginBottom: 12 }}>{HeartIcon(COLORS.textTer, 44)}</div>
+            <p style={{ fontSize: 15, fontWeight: 500, color: COLORS.textSec, marginBottom: 4 }}>Sin favoritos todavía</p>
+            <p style={{ fontSize: 13, color: COLORS.textTer, lineHeight: 1.5, maxWidth: 240, margin: "0 auto" }}>
+              Tocá el corazón en cualquier albergue para guardarlo acá
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: isTablet ? "repeat(2, 1fr)" : "1fr", gap: 10 }}>
+          {favorites.map((a, i) => {
+            const minPrice = Math.min(...a.rooms.map(r => r.price));
+            const totalAvail = a.rooms.reduce((acc, r) => acc + r.available, 0);
+            return (
+              <div key={a.id} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.08}s both`, position: "relative", marginBottom: 0 }}>
+                <div style={{ position: "absolute", top: 12, right: 12, cursor: "pointer", zIndex: 2 }} onClick={(e) => { e.stopPropagation(); onRemoveFavorite(a.id); }}>
+                  {HeartIcon(COLORS.red, 20, true)}
+                </div>
+                <div style={{ display: "flex", gap: 12, cursor: "pointer" }} onClick={() => onSelectAlbergue(a)}>
+                  <div style={{ width: 72, height: 72, borderRadius: 12, background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: 24 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <p style={{ fontSize: 15, fontWeight: 600 }}>{a.name}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {Icons.star(COLORS.amber, 12)}
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>{a.rating}</span>
+                      </div>
                     </div>
-                  </div>
-                  <p style={{ fontSize: 12, color: COLORS.textSec, marginBottom: 6 }}>{a.distance} · {a.address}</p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 600 }}>
-                      ${minPrice.toLocaleString()}<span style={{ fontSize: 11, fontWeight: 400, color: COLORS.textSec }}>/h</span>
-                    </span>
-                    <span style={S.badge(totalAvail > 0 ? COLORS.greenLight : COLORS.redLight, totalAvail > 0 ? COLORS.greenDark : COLORS.redDark)}>
-                      {totalAvail > 0 ? `${totalAvail} disponibles` : "Lleno"}
-                    </span>
+                    <p style={{ fontSize: 12, color: COLORS.textSec, marginBottom: 6 }}>{a.distance} · {a.address}</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>
+                        ${minPrice.toLocaleString()}<span style={{ fontSize: 11, fontWeight: 400, color: COLORS.textSec }}>/h</span>
+                      </span>
+                      <span style={S.badge(totalAvail > 0 ? COLORS.greenLight : COLORS.redLight, totalAvail > 0 ? COLORS.greenDark : COLORS.redDark)}>
+                        {totalAvail > 0 ? `${totalAvail} disponibles` : "Lleno"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })}
+          </div>
+        )}
+      </div>
+      <BottomNav active={activeNav} onNavigate={onNavigate} />
     </div>
-    <BottomNav active={activeNav} onNavigate={onNavigate} />
-  </div>
-);
+  );
+};
 
 // 11. PROFILE
 const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser }) => {
@@ -1773,6 +1927,8 @@ const ChatScreen = ({ albergue, token, authUser, onBack, activeNav, onNavigate }
 
 // ---- MAIN APP ----
 function RushUserApp({ onLogout, startScreen = "splash" }) {
+  const w = useWindowSize();
+  const isDesktop = w >= BP.md;
   const [screen, setScreen] = useState(startScreen);
   const [selectedAlbergue, setSelectedAlbergue] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -1972,9 +2128,11 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
     onLogout();
   };
 
-  return (
+  // Pantallas que NO muestran el sidebar (pre-login)
+  const noShell = ["splash", "onboarding", "login", "register", "forgot"].includes(screen);
+
+  const Screens = () => (
     <>
-      <UserGlobalCSS />
       {screen === "splash" && <SplashScreen onFinish={() => navigate("onboarding")} />}
       {screen === "onboarding" && <UserOnboardingScreen onLogin={() => navigate("login")} onRegister={() => navigate("register")} />}
       {screen === "login" && <UserLoginScreen onBack={onLogout} onLogin={handleAuthSuccess} onGoRegister={() => navigate("register")} onForgot={() => navigate("forgot")} />}
@@ -1987,18 +2145,25 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "payment" && <PaymentScreen albergue={selectedAlbergue} room={selectedRoom} onBack={() => navigate("detail")} onConfirm={handleConfirm} />}
       {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} code={activeReservation?.code} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
       {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} />}
-      {screen === "history" && <HistoryScreen
-        reservations={reservations}
-        activeNav={activeNav}
-        onNavigate={handleNavigation}
-        token={token}
-        albergues={albergues}
-        onRebook={(r) => {
-          const albergue = albergues.find(a => a.id === r.albergue_id);
-          if (albergue) { handleSelectAlbergue(albergue); }
-        }}
-      />}
+      {screen === "history" && <HistoryScreen reservations={reservations} activeNav={activeNav} onNavigate={handleNavigation} token={token} albergues={albergues} onRebook={(r) => { const albergue = albergues.find(a => a.id === r.albergue_id); if (albergue) handleSelectAlbergue(albergue); }} />}
       {screen === "profile" && <ProfileScreen onLogout={handleLogout} activeNav={activeNav} onNavigate={handleNavigation} authUser={authUser} />}
+    </>
+  );
+
+  return (
+    <>
+      <UserGlobalCSS />
+      {/* Desktop shell: sidebar fija + contenido scrollable */}
+      {isDesktop && !noShell ? (
+        <div style={{ display: "flex", minHeight: "100dvh", background: COLORS.bg }}>
+          <UserSideNav active={activeNav} onNavigate={handleNavigation} />
+          <div style={{ flex: 1, marginLeft: 240, minHeight: "100dvh", overflowY: screen === "map" ? "hidden" : "auto" }}>
+            <Screens />
+          </div>
+        </div>
+      ) : (
+        <Screens />
+      )}
     </>
   );
 }
