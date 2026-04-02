@@ -1081,35 +1081,65 @@ const PaymentScreen = ({ albergue, room, onBack, onConfirm }) => {
 
 // 8. CONFIRMATION
 const ConfirmationScreen = ({ albergue, room, total, hours, onDone }) => {
-  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const code = useRef(String(Math.floor(1000 + Math.random() * 9000))).current;
+  const [timeLeft, setTimeLeft] = useState(15 * 60);
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
+    return () => clearInterval(t);
+  }, [timeLeft]);
+
+  const mins = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const secs = String(timeLeft % 60).padStart(2, "0");
+  const expired = timeLeft <= 0;
+  const urgent = timeLeft <= 120;
+  const timerBg = expired ? COLORS.redLight : urgent ? COLORS.amberLight : COLORS.greenLight;
+  const timerColor = expired ? COLORS.redDark : urgent ? COLORS.amber : COLORS.greenDark;
+
   return (
     <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card }}>
       <StatusBar />
       <div style={{ padding: "8px 20px", ...S.fadeIn }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, fontFamily: FONTS.display }}>Reserva confirmada</h2>
         </div>
         {/* Success */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0 16px" }}>
-          <div style={{ width: 72, height: 72, borderRadius: "50%", background: COLORS.greenLight, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, animation: "rushSlideUp 0.5s ease" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 12px" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: COLORS.greenLight, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10, animation: "rushSlideUp 0.5s ease" }}>
             {Icons.check()}
           </div>
           <p style={{ fontSize: 18, fontWeight: 700, fontFamily: FONTS.display }}>¡Todo listo!</p>
           <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 4 }}>Mostrá este código al llegar</p>
         </div>
+        {/* Countdown */}
+        <div style={{ margin: "8px 0 10px", padding: "12px 18px", borderRadius: 14, background: timerBg, display: "flex", alignItems: "center", justifyContent: "space-between", transition: "background 0.5s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {Icons.clock(timerColor, 18)}
+            <span style={{ fontSize: 13, fontWeight: 600, color: timerColor }}>
+              {expired ? "Tiempo agotado — código inválido" : urgent ? "¡Date prisa!" : "Tiempo para llegar"}
+            </span>
+          </div>
+          {!expired && (
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1, color: timerColor, fontFamily: FONTS.display }}>
+              {mins}:{secs}
+            </span>
+          )}
+        </div>
         {/* Code */}
-        <div style={{ margin: "12px 0 20px", padding: 24, borderRadius: 16, background: COLORS.bg, textAlign: "center" }}>
+        <div style={{ margin: "10px 0 16px", padding: "18px 24px", borderRadius: 16, background: COLORS.bg, textAlign: "center", opacity: expired ? 0.45 : 1, transition: "opacity 0.5s" }}>
           <p style={{ fontSize: 11, color: COLORS.textSec, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>Código de acceso</p>
-          <p style={{ fontSize: 48, fontWeight: 800, letterSpacing: 12, color: COLORS.purple, fontFamily: FONTS.display }}>
+          <p style={{ fontSize: 48, fontWeight: 800, letterSpacing: 12, color: expired ? COLORS.textTer : COLORS.purple, fontFamily: FONTS.display }}>
             {code.split("").join(" ")}
           </p>
+          {expired && <p style={{ fontSize: 12, color: COLORS.redDark, marginTop: 6, fontWeight: 600 }}>Este código ya no es válido</p>}
         </div>
         {/* Details */}
         <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 16 }}>
           {[
             { label: "Lugar", value: albergue.name },
             { label: "Habitación", value: room.name },
-            { label: "Duración", value: `${hours} horas` },
+            { label: "Duración", value: `${hours} hora${hours > 1 ? "s" : ""}` },
           ].map(({ label, value }, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 13, color: COLORS.textSec }}>{label}</span>
@@ -1122,51 +1152,174 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone }) => {
           </div>
         </div>
         {/* Privacy */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
           {Icons.shield(COLORS.greenDark, 12)}
           <span style={{ fontSize: 11, color: COLORS.textSec }}>Tus datos personales no se comparten con el albergue</span>
         </div>
-        <button style={{ ...S.btn(), marginTop: 24 }} onClick={onDone}>Volver al inicio</button>
+        <button style={{ ...S.btn(), marginTop: 20 }} onClick={onDone}>Volver al inicio</button>
       </div>
     </div>
   );
 };
 
 // 9. HISTORY
-const HistoryScreen = ({ reservations, activeNav, onNavigate }) => (
-  <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
-    <StatusBar />
-    <div style={S.header}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Historial</h2>
-      <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 2 }}>Tus reservas anteriores</p>
-    </div>
-    <div style={S.section}>
-      {reservations.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
-          {Icons.clock(COLORS.textTer, 40)}
-          <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 12 }}>Todavía no tenés reservas</p>
-        </div>
-      ) : (
-        reservations.map((r, i) => (
-          <div key={i} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.1}s both` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 600 }}>{r.albergue}</p>
-                <p style={{ fontSize: 12, color: COLORS.textSec }}>{r.room} · {r.hours}h</p>
+const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, onRebook }) => {
+  const [reviewModal, setReviewModal] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewed, setReviewed] = useState(new Set());
+
+  const openReview = (r) => { setReviewModal(r); setRating(0); setHoverRating(0); setComment(""); setReviewError(""); };
+  const closeReview = () => { setReviewModal(null); setReviewError(""); };
+
+  const submitReview = async () => {
+    if (!rating) { setReviewError("Seleccioná una calificación"); return; }
+    setSubmitting(true);
+    setReviewError("");
+    try {
+      await api.post("/reviews", {
+        albergue_id: reviewModal.albergue_id,
+        reservation_id: reviewModal.id,
+        rating,
+        comment: comment.trim(),
+      }, token);
+      setReviewed(prev => new Set([...prev, reviewModal.id]));
+      closeReview();
+    } catch (err) {
+      setReviewError(err.message || "No se pudo enviar la reseña");
+    }
+    setSubmitting(false);
+  };
+
+  const statusBadge = (status) => {
+    const map = {
+      completada: { bg: COLORS.greenLight, color: COLORS.greenDark, label: "Completada" },
+      en_curso: { bg: COLORS.purpleLight, color: COLORS.purple, label: "En curso" },
+      pendiente: { bg: COLORS.amberLight, color: COLORS.amber, label: "Pendiente" },
+      cancelada: { bg: COLORS.redLight, color: COLORS.redDark, label: "Cancelada" },
+    };
+    const s = map[status] || map.completada;
+    return <span style={S.badge(s.bg, s.color)}>{s.label}</span>;
+  };
+
+  return (
+    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
+      <StatusBar />
+      <div style={S.header}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Historial</h2>
+        <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 2 }}>Tus reservas anteriores</p>
+      </div>
+      <div style={S.section}>
+        {reservations.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            {Icons.clock(COLORS.textTer, 40)}
+            <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 12 }}>Todavía no tenés reservas</p>
+          </div>
+        ) : (
+          reservations.map((r, i) => (
+            <div key={r.id || i} style={{ ...S.card, animation: `rushFadeIn 0.3s ease ${i * 0.08}s both` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600 }}>{r.albergue}</p>
+                  <p style={{ fontSize: 12, color: COLORS.textSec }}>{r.room} · {r.hours}h</p>
+                </div>
+                {statusBadge(r.status)}
               </div>
-              <span style={S.badge(COLORS.greenLight, COLORS.greenDark)}>Completada</span>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${COLORS.border}`, paddingTop: 8, marginTop: 4, marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: COLORS.textSec }}>Código: <strong>{r.code}</strong></span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>${r.total.toLocaleString()}</span>
+              </div>
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8 }}>
+                {onRebook && r.albergue_id && (
+                  <button
+                    onClick={() => onRebook(r)}
+                    style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: `1.5px solid ${COLORS.purple}`, background: "transparent", color: COLORS.purple, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONTS.sans }}>
+                    Reservar de nuevo
+                  </button>
+                )}
+                {token && r.id && r.status === "completada" && !reviewed.has(r.id) && (
+                  <button
+                    onClick={() => openReview(r)}
+                    style={{ flex: 1, padding: "8px 0", borderRadius: 10, border: "none", background: COLORS.purpleLight, color: COLORS.purple, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONTS.sans }}>
+                    Dejar reseña
+                  </button>
+                )}
+                {r.id && reviewed.has(r.id) && (
+                  <div style={{ flex: 1, padding: "8px 0", borderRadius: 10, background: COLORS.greenLight, textAlign: "center" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.greenDark }}>✓ Reseña enviada</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${COLORS.border}`, paddingTop: 8, marginTop: 4 }}>
-              <span style={{ fontSize: 12, color: COLORS.textSec }}>Código: {r.code}</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>${r.total.toLocaleString()}</span>
+          ))
+        )}
+      </div>
+      <BottomNav active={activeNav} onNavigate={onNavigate} />
+
+      {/* Review Modal */}
+      {reviewModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeReview(); }}>
+          <div style={{ width: 375, maxWidth: "100%", background: COLORS.card, borderRadius: "20px 20px 0 0", padding: "24px 20px 36px", animation: "rushSlideUp 0.3s ease" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: COLORS.border, margin: "0 auto 20px" }} />
+            <h3 style={{ fontSize: 18, fontWeight: 700, fontFamily: FONTS.display, marginBottom: 4 }}>Dejar reseña</h3>
+            <p style={{ fontSize: 13, color: COLORS.textSec, marginBottom: 20 }}>{reviewModal.albergue} · {reviewModal.room}</p>
+
+            {/* Stars */}
+            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Calificación</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <div key={n}
+                  onMouseEnter={() => setHoverRating(n)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={() => setRating(n)}
+                  style={{ cursor: "pointer", fontSize: 36, lineHeight: 1, transition: "transform 0.1s", transform: (hoverRating || rating) >= n ? "scale(1.15)" : "scale(1)" }}>
+                  <span style={{ color: (hoverRating || rating) >= n ? COLORS.amber : COLORS.border }}>★</span>
+                </div>
+              ))}
+              {rating > 0 && (
+                <span style={{ fontSize: 13, color: COLORS.textSec, alignSelf: "center", marginLeft: 4 }}>
+                  {["", "Muy malo", "Malo", "Regular", "Bueno", "Excelente"][rating]}
+                </span>
+              )}
+            </div>
+
+            {/* Comment */}
+            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Comentario (opcional)</p>
+            <textarea
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Contá tu experiencia..."
+              maxLength={300}
+              rows={3}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, fontSize: 14, fontFamily: FONTS.sans, resize: "none", outline: "none", boxSizing: "border-box", color: COLORS.text, background: COLORS.bg }}
+            />
+            <p style={{ fontSize: 11, color: COLORS.textTer, textAlign: "right", marginTop: 4 }}>{comment.length}/300</p>
+
+            {reviewError && (
+              <p style={{ fontSize: 13, color: COLORS.redDark, fontWeight: 600, marginTop: 8 }}>{reviewError}</p>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button onClick={closeReview}
+                style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: `1.5px solid ${COLORS.border}`, background: "transparent", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: FONTS.sans, color: COLORS.textSec }}>
+                Cancelar
+              </button>
+              <button onClick={submitReview} disabled={submitting || !rating}
+                style={{ flex: 2, padding: "12px 0", borderRadius: 12, border: "none", background: rating ? COLORS.purple : COLORS.border, color: rating ? "#fff" : COLORS.textSec, fontSize: 14, fontWeight: 600, cursor: rating ? "pointer" : "not-allowed", fontFamily: FONTS.sans, opacity: submitting ? 0.7 : 1 }}>
+                {submitting ? "Enviando..." : "Enviar reseña"}
+              </button>
             </div>
           </div>
-        ))
+        </div>
       )}
     </div>
-    <BottomNav active={activeNav} onNavigate={onNavigate} />
-  </div>
-);
+  );
+};
 
 // 10. FAVORITES
 const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate }) => (
@@ -1420,11 +1573,16 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
     if (!token) return;
     api.get("/reservations", token).then(data => {
       setReservations((data.reservations || []).map(r => ({
+        id: r.id,
+        albergue_id: r.albergue_id,
+        room_id: r.room_id,
         albergue: r.albergues?.name || "—",
         room: r.rooms?.name || "—",
         total: r.total,
         hours: r.hours,
         code: r.code,
+        status: r.status || "completada",
+        created_at: r.created_at,
       })));
     }).catch(() => { });
   }, [token]);
@@ -1497,25 +1655,36 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
           pay_method: method === "digital" ? "digital" : "cash",
         }, token);
         setReservations(prev => [...prev, {
+          id: data.reservation.id,
+          albergue_id: selectedAlbergue.id,
+          room_id: selectedRoom.id,
           albergue: selectedAlbergue.name,
           room: selectedRoom.name,
           total: data.reservation.total,
           hours,
           code: data.reservation.code,
+          status: data.reservation.status || "completada",
+          created_at: data.reservation.created_at,
         }]);
         setBookingInfo({ total: data.reservation.total, hours, method });
       } catch (err) {
         console.error("Error creando reserva:", err);
         // Fallback local
         setReservations(prev => [...prev, {
+          albergue_id: selectedAlbergue.id,
+          room_id: selectedRoom.id,
           albergue: selectedAlbergue.name, room: selectedRoom.name,
           total, hours, code: String(Math.floor(1000 + Math.random() * 9000)),
+          status: "completada",
         }]);
       }
     } else {
       setReservations(prev => [...prev, {
+        albergue_id: selectedAlbergue?.id,
+        room_id: selectedRoom?.id,
         albergue: selectedAlbergue.name, room: selectedRoom.name,
         total, hours, code: String(Math.floor(1000 + Math.random() * 9000)),
+        status: "completada",
       }]);
     }
     navigate("confirmation");
@@ -1542,7 +1711,17 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "payment" && <PaymentScreen albergue={selectedAlbergue} room={selectedRoom} onBack={() => navigate("detail")} onConfirm={handleConfirm} />}
       {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
       {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} />}
-      {screen === "history" && <HistoryScreen reservations={reservations} activeNav={activeNav} onNavigate={handleNavigation} />}
+      {screen === "history" && <HistoryScreen
+        reservations={reservations}
+        activeNav={activeNav}
+        onNavigate={handleNavigation}
+        token={token}
+        albergues={albergues}
+        onRebook={(r) => {
+          const albergue = albergues.find(a => a.id === r.albergue_id);
+          if (albergue) { handleSelectAlbergue(albergue); }
+        }}
+      />}
       {screen === "profile" && <ProfileScreen onLogout={handleLogout} activeNav={activeNav} onNavigate={handleNavigation} authUser={authUser} />}
     </>
   );
@@ -2585,74 +2764,141 @@ const PricingView = ({ rooms, setRooms }) => {
 // ─── METRICS ───
 const MetricsView = () => {
   const [period, setPeriod] = useState("week");
+  const [apiMetrics, setApiMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
   const periods = [{ key: "today", label: "Hoy" }, { key: "week", label: "Semana" }, { key: "month", label: "Mes" }, { key: "year", label: "Año" }];
-  const maxRev = Math.max(...DAILY_REVENUE.map(d => d.value));
 
-  const roomPerf = [
-    { name: "Suite Premium", revenue: 385000, reservations: 22, occupancy: 88 },
-    { name: "Clásica", revenue: 312000, reservations: 18, occupancy: 72 },
-    { name: "VIP", revenue: 145000, reservations: 7, occupancy: 52 },
-  ];
-  const maxPerf = Math.max(...roomPerf.map(r => r.revenue));
+  useEffect(() => {
+    const token = localStorage.getItem("rush_token");
+    if (!token) { setLoading(false); return; }
+    api.get("/owners/me", token)
+      .then(data => {
+        const albergueId = data.owner?.albergues?.[0]?.id;
+        if (!albergueId) { setLoading(false); return; }
+        return api.get(`/metrics/admin/${albergueId}`, token);
+      })
+      .then(data => { if (data) setApiMetrics(data.metrics); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const dailyData = apiMetrics?.dailyRevenue || DAILY_REVENUE;
+  const maxRev = Math.max(...dailyData.map(d => d.value), 1);
+
+  const roomPerf = apiMetrics?.rooms?.length > 0
+    ? apiMetrics.rooms.map(r => ({
+        name: r.name,
+        status: r.status,
+        price: r.price_1h,
+        occupancy: r.status === "ocupada" || r.status === "reservada" ? 100 : r.status === "libre" ? 0 : 50,
+      }))
+    : [
+        { name: "Suite Premium", revenue: 385000, reservations: 22, occupancy: 88 },
+        { name: "Clásica", revenue: 312000, reservations: 18, occupancy: 72 },
+        { name: "VIP", revenue: 145000, reservations: 7, occupancy: 52 },
+      ];
+
+  const fmtMoney = (n) => n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
 
   return (
     <div style={{ animation: "fadeUp 0.4s ease" }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {periods.map(p => (
-          <span key={p.key} onClick={() => setPeriod(p.key)}
-            style={{
-              padding: "8px 18px", borderRadius: 14, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
-              background: period === p.key ? CA.purple : CA.card, color: period === p.key ? "#fff" : CA.textSec,
-              border: period === p.key ? "none" : `1px solid ${CA.border}`
-            }}>
-            {p.label}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 28 }}>
-        <MetricCard label="Ingresos" value="$842k" trend="up" trendValue="+18%" color={CA.purple} />
-        <MetricCard label="Reservas" value="47" trend="up" trendValue="+12%" />
-        <MetricCard label="Ocupación prom." value="74%" trend="up" trendValue="+5%" color={CA.green} />
-        <MetricCard label="Ticket promedio" value="$17.9k" trend="down" trendValue="-3%" />
-      </div>
-
-      {/* Bar chart */}
-      <div style={{ background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, padding: "20px 24px", marginBottom: 20 }}>
-        <SectionTitle>Ingresos por día</SectionTitle>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height: 160, gap: 8 }}>
-          {DAILY_REVENUE.map((d, i) => {
-            const h = Math.round((d.value / maxRev) * 140);
-            const isWeekend = i >= 4;
-            return (
-              <div key={d.day} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: CA.textSec }}>${Math.round(d.value / 1000)}k</span>
-                <div style={{ width: "100%", maxWidth: 40, height: h, borderRadius: "6px 6px 0 0", background: isWeekend ? CA.purple : CA.purple200, transition: "height 0.5s ease" }} />
-                <span style={{ fontSize: 12, fontWeight: isWeekend ? 700 : 400, color: isWeekend ? CA.purple : CA.textSec }}>{d.day}</span>
-              </div>
-            );
-          })}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {periods.map(p => (
+            <span key={p.key} onClick={() => setPeriod(p.key)}
+              style={{
+                padding: "8px 18px", borderRadius: 14, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
+                background: period === p.key ? CA.purple : CA.card, color: period === p.key ? "#fff" : CA.textSec,
+                border: period === p.key ? "none" : `1px solid ${CA.border}`
+              }}>
+              {p.label}
+            </span>
+          ))}
         </div>
+        {!loading && apiMetrics && (
+          <span style={{ fontSize: 11, color: CA.green, fontWeight: 600, padding: "4px 10px", background: CA.greenLight, borderRadius: 8 }}>● En vivo</span>
+        )}
+      </div>
+
+      {/* KPI cards — API cuando está disponible */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 28 }}>
+        {apiMetrics ? (
+          <>
+            <MetricCard label="Ingresos hoy" value={fmtMoney(apiMetrics.todayRevenue)} trend="up" trendValue="" color={CA.purple} />
+            <MetricCard label="Reservas activas" value={String(apiMetrics.activeReservations)} trend="up" trendValue="" />
+            <MetricCard label="Ocupación" value={`${apiMetrics.occupancy}%`} trend={apiMetrics.occupancy >= 50 ? "up" : "down"} trendValue="" color={CA.green} />
+            <MetricCard label="Rating" value={String(apiMetrics.rating || "—")} trend="up" trendValue={`${apiMetrics.reviewCount} reseñas`} color={CA.amber} />
+          </>
+        ) : (
+          <>
+            <MetricCard label="Ingresos" value="$842k" trend="up" trendValue="+18%" color={CA.purple} />
+            <MetricCard label="Reservas" value="47" trend="up" trendValue="+12%" />
+            <MetricCard label="Ocupación prom." value="74%" trend="up" trendValue="+5%" color={CA.green} />
+            <MetricCard label="Ticket promedio" value="$17.9k" trend="down" trendValue="-3%" />
+          </>
+        )}
+      </div>
+
+      {/* Bar chart — ingresos por día */}
+      <div style={{ background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, padding: "20px 24px", marginBottom: 20 }}>
+        <SectionTitle>{apiMetrics ? "Ingresos últimos 7 días (API)" : "Ingresos por día"}</SectionTitle>
+        {loading ? (
+          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 13, color: CA.textSec }}>Cargando datos...</span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height: 160, gap: 8 }}>
+            {dailyData.map((d, i) => {
+              const h = Math.max(Math.round((d.value / maxRev) * 140), d.value > 0 ? 8 : 2);
+              const isWeekend = i >= 4;
+              return (
+                <div key={d.day} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: CA.textSec }}>{d.value > 0 ? fmtMoney(d.value) : ""}</span>
+                  <div style={{ width: "100%", maxWidth: 40, height: h, borderRadius: "6px 6px 0 0", background: isWeekend ? CA.purple : CA.purple200, transition: "height 0.5s ease" }} />
+                  <span style={{ fontSize: 12, fontWeight: isWeekend ? 700 : 400, color: isWeekend ? CA.purple : CA.textSec }}>{d.day}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Room performance */}
       <div style={{ background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, padding: "20px 24px", marginBottom: 20 }}>
         <SectionTitle>Rendimiento por habitación</SectionTitle>
-        {roomPerf.map((r, i) => (
-          <div key={r.name} style={{ marginBottom: i < roomPerf.length - 1 ? 18 : 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: CA.purple }}>${Math.round(r.revenue / 1000)}k</span>
-            </div>
-            <div style={{ height: 8, borderRadius: 4, background: CA.bg, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${Math.round((r.revenue / maxPerf) * 100)}%`, borderRadius: 4, background: i === 0 ? CA.purple : i === 1 ? CA.purple200 : CA.purple100, transition: "width 0.6s ease" }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-              <span style={{ fontSize: 12, color: CA.textSec }}>{r.reservations} reservas</span>
-              <span style={{ fontSize: 12, color: r.occupancy >= 70 ? CA.greenDark : CA.amberDark, fontWeight: 500 }}>{r.occupancy}% ocupación</span>
-            </div>
-          </div>
-        ))}
+        {apiMetrics?.rooms?.length > 0 ? (
+          apiMetrics.rooms.map((r, i) => {
+            const statusColor = r.status === "libre" ? CA.green : r.status === "ocupada" ? CA.amber : CA.purple;
+            const statusLabel = { libre: "Libre", ocupada: "Ocupada", reservada: "Reservada", mantenimiento: "Mant." }[r.status] || r.status;
+            return (
+              <div key={r.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < apiMetrics.rooms.length - 1 ? `1px solid ${CA.border}` : "none" }}>
+                <div>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
+                  <span style={{ fontSize: 12, color: CA.textSec, marginLeft: 8 }}>${(r.price_1h || 0).toLocaleString()}/h</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 8, background: `${statusColor}22`, color: statusColor }}>{statusLabel}</span>
+              </div>
+            );
+          })
+        ) : (
+          roomPerf.map((r, i) => {
+            const maxP = Math.max(...roomPerf.map(x => x.revenue || 1));
+            return (
+              <div key={r.name} style={{ marginBottom: i < roomPerf.length - 1 ? 18 : 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: CA.purple }}>{fmtMoney(r.revenue)}</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 4, background: CA.bg, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.round((r.revenue / maxP) * 100)}%`, borderRadius: 4, background: i === 0 ? CA.purple : i === 1 ? CA.purple200 : CA.purple100, transition: "width 0.6s ease" }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ fontSize: 12, color: CA.textSec }}>{r.reservations} reservas</span>
+                  <span style={{ fontSize: 12, color: r.occupancy >= 70 ? CA.greenDark : CA.amberDark, fontWeight: 500 }}>{r.occupancy}% ocupación</span>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Peak hours */}
@@ -3517,36 +3763,76 @@ const FinancesView = ({ albergues }) => {
 
 // ── METRICS VIEW ──
 const SAMetricsView = ({ albergues, requests }) => {
-  const totalUsers = 12480;
-  const totalReservations = albergues.reduce((a, b) => a + b.reservations, 0);
-  const conversionRate = Math.round((totalReservations / totalUsers) * 100);
-  const avgRating = (albergues.filter(a => a.status === "active").reduce((a, b) => a + b.rating, 0) / albergues.filter(a => a.status === "active").length).toFixed(1);
-  const verifiedPct = Math.round((requests.filter(r => r.status === "verified").length / requests.length) * 100);
+  const [apiMetrics, setApiMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("rush_token");
+    if (!token) { setLoading(false); return; }
+    api.get("/metrics/superadmin", token)
+      .then(data => { setApiMetrics(data.metrics); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  // Fallback a datos locales si la API no responde
+  const totalUsers = apiMetrics?.totalUsers ?? 12480;
+  const totalReservations = apiMetrics?.totalReservations ?? albergues.reduce((a, b) => a + b.reservations, 0);
+  const totalAlbergues = apiMetrics?.totalAlbergues ?? albergues.filter(a => a.status === "active").length;
+  const conversionRate = totalUsers > 0 ? Math.round((totalReservations / totalUsers) * 100) : 0;
+  const avgRating = (albergues.filter(a => a.status === "active").reduce((a, b) => a + b.rating, 0) / (albergues.filter(a => a.status === "active").length || 1)).toFixed(1);
+  const verifiedPct = requests.length > 0 ? Math.round((requests.filter(r => r.status === "verified").length / requests.length) * 100) : 0;
+
+  const zoneData = apiMetrics?.zoneDistribution?.length > 0
+    ? apiMetrics.zoneDistribution
+    : Object.entries(
+        albergues.filter(a => a.status === "active").reduce((acc, a) => { acc[a.zone] = (acc[a.zone] || 0) + 1; return acc; }, {})
+      ).map(([zone, count]) => ({ zone, count }));
+  const maxZoneCount = Math.max(...zoneData.map(z => z.count), 1);
 
   return (
     <div style={{ animation: "saFadeUp 0.4s ease" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <Metric label="Usuarios registrados" value={totalUsers.toLocaleString()} trend="up" trendVal="+1.200 este mes" />
-        <Metric label="Tasa de conversión" value={`${conversionRate}%`} trend="up" trendVal="+3%" color={CSA.green} />
-        <Metric label="Rating promedio" value={avgRating} color={CSA.amber} />
-        <Metric label="Tasa verificación" value={`${verifiedPct}%`} color={CSA.purple} />
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        {!loading && apiMetrics && (
+          <span style={{ fontSize: 11, color: CSA.green, fontWeight: 600, padding: "4px 10px", background: CSA.greenLight, borderRadius: 8 }}>● Datos en vivo</span>
+        )}
+        {loading && (
+          <span style={{ fontSize: 11, color: CSA.textSec, padding: "4px 10px" }}>Cargando métricas...</span>
+        )}
       </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <Metric label="Usuarios registrados" value={totalUsers.toLocaleString()} trend="up" trendVal={apiMetrics ? "desde DB" : "+1.200 este mes"} />
+        <Metric label="Reservas totales" value={totalReservations.toLocaleString()} trend="up" trendVal={apiMetrics ? "desde DB" : "+18%"} color={CSA.purple} />
+        <Metric label="Albergues activos" value={String(totalAlbergues)} trend="up" trendVal={apiMetrics ? "verificados" : "+6 este mes"} color={CSA.green} />
+        {apiMetrics?.pendingRequests !== undefined
+          ? <Metric label="Solicitudes pendientes" value={String(apiMetrics.pendingRequests)} trend={apiMetrics.pendingRequests > 0 ? "down" : "up"} trendVal={apiMetrics.pendingRequests > 0 ? "requieren atención" : "al día"} color={CSA.amber} />
+          : <Metric label="Tasa verificación" value={`${verifiedPct}%`} color={CSA.purple} />
+        }
+      </div>
+
+      {apiMetrics && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+          <Metric label="Ingresos del mes" value={`$${Math.round((apiMetrics.monthRevenue || 0) / 1000)}k`} trend="up" trendVal="total plataforma" color={CSA.purple} />
+          <Metric label="Comisión Rush (15%)" value={`$${Math.round((apiMetrics.monthCommission || 0) / 1000)}k`} trend="up" trendVal="este mes" color={CSA.green} />
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
         <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px" }}>
-          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Distribución por zona</p>
-          {Object.entries(albergues.filter(a => a.status === "active").reduce((acc, a) => { acc[a.zone] = (acc[a.zone] || 0) + 1; return acc; }, {}))
-            .sort((a, b) => b[1] - a[1]).map(([zone, count], i) => (
-              <div key={zone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${CSA.border}` }}>
-                <span style={{ fontSize: 14 }}>{zone}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 60, height: 6, borderRadius: 3, background: CSA.bg, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${(count / albergues.length) * 100}%`, borderRadius: 3, background: CSA.purple }} />
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 600, minWidth: 16, textAlign: "right" }}>{count}</span>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>
+            Distribución por zona {apiMetrics ? <span style={{ fontSize: 11, color: CSA.green, fontWeight: 600 }}>● vivo</span> : ""}
+          </p>
+          {zoneData.sort((a, b) => b.count - a.count).map(({ zone, count }) => (
+            <div key={zone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${CSA.border}` }}>
+              <span style={{ fontSize: 14 }}>{zone}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 60, height: 6, borderRadius: 3, background: CSA.bg, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${(count / maxZoneCount) * 100}%`, borderRadius: 3, background: CSA.purple }} />
                 </div>
+                <span style={{ fontSize: 13, fontWeight: 600, minWidth: 16, textAlign: "right" }}>{count}</span>
               </div>
-            ))}
+            </div>
+          ))}
         </div>
 
         <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px" }}>
@@ -3573,9 +3859,30 @@ const SAMetricsView = ({ albergues, requests }) => {
         </div>
       </div>
 
+      {apiMetrics?.topAlbergues?.length > 0 && (
+        <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px", marginBottom: 20 }}>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Top albergues por actividad</p>
+          {apiMetrics.topAlbergues.map((a, i) => (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < apiMetrics.topAlbergues.length - 1 ? `1px solid ${CSA.border}` : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: CSA.textSec, width: 18 }}>#{i + 1}</span>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{a.name}</p>
+                  <p style={{ fontSize: 12, color: CSA.textSec, margin: 0 }}>{a.zone}</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: CSA.amber }}>★ {a.rating}</span>
+                <span style={{ fontSize: 12, color: CSA.textSec, marginLeft: 8 }}>{a.review_count} reseñas</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Metric label="Reservas promedio por albergue" value={Math.round(totalReservations / albergues.filter(a => a.status === "active").length)} trend="up" trendVal="+18%" />
-        <Metric label="Crecimiento mensual de albergues" value="+16%" trend="up" trendVal="6 nuevos en marzo" color={CSA.green} />
+        <Metric label="Tasa de conversión" value={`${conversionRate}%`} trend="up" trendVal="+3%" color={CSA.green} />
+        <Metric label="Rating promedio" value={avgRating} color={CSA.amber} />
       </div>
     </div>
   );
