@@ -2223,20 +2223,13 @@ const CA = {
 
 const FONT_ADMIN = "'Outfit', 'DM Sans', sans-serif";
 
-const ROOMS_DATA = [
-  { id: 1, name: "Clásica 1", type: "Clásica", price1h: 6500, price2h: 11000, priceNight: 18000, status: "libre", peakEnabled: true, peakPct: 30, reservations: 18, occupancy: 72, revenue: 312000 },
-  { id: 2, name: "Clásica 2", type: "Clásica", price1h: 6500, price2h: 11000, priceNight: 18000, status: "ocupada", peakEnabled: true, peakPct: 30, reservations: 16, occupancy: 68, revenue: 289000 },
-  { id: 3, name: "Clásica 3", type: "Clásica", price1h: 6500, price2h: 11000, priceNight: 18000, status: "libre", peakEnabled: true, peakPct: 30, reservations: 14, occupancy: 65, revenue: 254000 },
-  { id: 4, name: "Suite Premium 1", type: "Suite Premium", price1h: 8500, price2h: 15000, priceNight: 25000, status: "reservada", peakEnabled: true, peakPct: 25, reservations: 22, occupancy: 88, revenue: 385000 },
-  { id: 5, name: "Suite Premium 2", type: "Suite Premium", price1h: 8500, price2h: 15000, priceNight: 25000, status: "libre", peakEnabled: true, peakPct: 25, reservations: 19, occupancy: 80, revenue: 340000 },
-  { id: 6, name: "VIP", type: "VIP", price1h: 12000, price2h: 20000, priceNight: 35000, status: "mantenimiento", peakEnabled: false, peakPct: 0, reservations: 7, occupancy: 52, revenue: 145000 },
-];
+const ROOMS_DATA = [];
 
 const RESERVATIONS_DATA = [];
 
 const DAILY_REVENUE = [
-  { day: "Lun", value: 95000 }, { day: "Mar", value: 115000 }, { day: "Mié", value: 82000 },
-  { day: "Jue", value: 128000 }, { day: "Vie", value: 178000 }, { day: "Sáb", value: 198000 }, { day: "Dom", value: 152000 },
+  { day: "Lun", value: 0 }, { day: "Mar", value: 0 }, { day: "Mié", value: 0 },
+  { day: "Jue", value: 0 }, { day: "Vie", value: 0 }, { day: "Sáb", value: 0 }, { day: "Dom", value: 0 },
 ];
 
 // ─── Icons ───
