@@ -2996,8 +2996,12 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
 const DashboardView = ({ rooms, setRooms }) => {
   const occupied = rooms.filter(r => r.status === "ocupada" || r.status === "reservada").length;
   const occupancyPct = Math.round((occupied / rooms.length) * 100);
-  const userResAdmin = JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]");
-  const allResAdmin = [...userResAdmin, ...RESERVATIONS_DATA];
+  const [liveUserRes, setLiveUserRes] = useState(() => JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
+  useEffect(() => {
+    const interval = setInterval(() => setLiveUserRes(JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]")), 2000);
+    return () => clearInterval(interval);
+  }, []);
+  const allResAdmin = [...liveUserRes, ...RESERVATIONS_DATA];
   const todayRevenue = allResAdmin.filter(r => r.status !== "completada").reduce((a, r) => a + r.amount, 0);
   const activeRes = allResAdmin.filter(r => r.status === "en_curso" || r.status === "pendiente" || r.status === "por_vencer").length;
 
@@ -3079,7 +3083,13 @@ const ReservationsView = () => {
   const [filter, setFilter] = useState("all");
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState(null);
-  const userReservations = JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]");
+  const [userReservations, setUserReservations] = useState(() => JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUserReservations(JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
   const allReservations = [...userReservations, ...RESERVATIONS_DATA];
   const filters = [
     { key: "all", label: "Todas" },
