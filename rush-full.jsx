@@ -318,7 +318,7 @@ const UserSideNav = ({ active, onNavigate }) => {
               onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#F5F4FE"; }}
               onMouseLeave={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
               {icon(on ? COLORS.purple : COLORS.textSec)}
-              <span style={{ fontSize: 14, fontWeight: on ? 600 : 500, color: on ? COLORS.purple : COLORS.text }}>{label}</span>
+              <span style={{ fontSize: 14, fontWeight: on ? 700 : 500, color: on ? COLORS.purple : COLORS.textSec, fontFamily: FONTS.sans }}>{label}</span>
               {on && <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.purple, marginLeft: "auto" }} />}
             </div>
           );
@@ -3818,7 +3818,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3829,7 +3829,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3840,7 +3840,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3851,7 +3851,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3862,7 +3862,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3873,7 +3873,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
@@ -3899,7 +3899,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
         ::-webkit-scrollbar { width: 6px; }
@@ -4588,7 +4588,7 @@ function RushSuperAdminApp({ onLogout }) {
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CSA.bg}; }
+        body { font-family: 'DM Sans', 'Helvetica Neue', sans-serif; background: ${CSA.bg}; -webkit-font-smoothing: antialiased; }
         @keyframes saFadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CSA.purple} !important; }
         ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${CSA.borderSec}; border-radius: 3px; }
