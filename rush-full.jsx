@@ -627,8 +627,8 @@ const UserRegisterScreen = ({ onBack, onRegister }) => {
     } finally { setLoading(false); }
   };
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: COLORS.card, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif", ...S.fadeIn }}>
-      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: COLORS.card, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif", ...S.fadeIn }}>
+      <div style={{ width: "100%", maxWidth: 480 }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={onBack}>{Icons.back()}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: FONTS.display, margin: "0 0 6px" }}>Crear cuenta</h1>
         <p style={{ fontSize: 14, color: COLORS.textSec, margin: "0 0 28px" }}>Tu información es 100% privada</p>
@@ -4717,7 +4717,7 @@ const UStarIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="#0F6E56"
 const UCheckIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>;
 
 const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
-  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.card, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: UC.card, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif" }}>
     <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", textAlign: "center", animation: "rushEntry 0.5s ease" }}>
       <div style={{ width: 88, height: 88, borderRadius: 24, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 38, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
@@ -4745,7 +4745,7 @@ const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
 );
 
 const UnifiedAdminWelcome = ({ onBack, onRegister, onLogin }) => (
-  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: UC.bg, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif" }}>
     <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", textAlign: "center", animation: "rushEntry 0.4s ease" }}>
       <div style={{ width: 80, height: 80, borderRadius: 22, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 34, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
@@ -4803,7 +4803,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
 
   // Forgot password - sent confirmation
   if (showForgot && forgotSent) return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: UC.bg, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(""); }}>{UBackArrow}</div>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -4823,7 +4823,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
 
   // Forgot password - form
   if (showForgot) return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: UC.bg, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotError(""); }}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Recuperar contrase\u00f1a"}</h1>
@@ -4840,7 +4840,7 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
   );
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: UC.bg, padding: "24px 28px", fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 480, margin: "0 auto", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={onBack}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Inici\u00e1 sesi\u00f3n"}</h1>
