@@ -267,6 +267,7 @@ const BottomNav = ({ active, onNavigate }) => (
     {[
       { key: "map", icon: (c) => Icons.map(c), label: "Explorar" },
       { key: "favorites", icon: (c) => HeartIcon(c, 22, active === "favorites"), label: "Favoritos" },
+      { key: "chats", icon: (c) => Icons.chat(c, 22), label: "Mensajes" },
       { key: "history", icon: (c) => Icons.clock(c), label: "Historial" },
       { key: "profile", icon: (c) => Icons.user(c), label: "Perfil" },
     ].map(({ key, icon, label }) => (
@@ -754,9 +755,18 @@ const LeafletMap = ({ onSelectAlbergue, albergues = [] }) => {
 };
 
 // 5. MAP / EXPLORE
-const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile }) => {
+const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation }) => {
   const [activeFilter, setActiveFilter] = useState("Cerca");
   const [search, setSearch] = useState("");
+  const [bannerTimeLeft, setBannerTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!activeReservation) return;
+    const tick = () => setBannerTimeLeft(Math.max(0, activeReservation.expiresAt - Date.now()));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [activeReservation]);
   const filters = ["Cerca", "Precio", "Calidad", "Suite", "24hs"];
 
   let filtered = albergues.filter(a =>
@@ -794,6 +804,24 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
           </div>
         </div>
       </div>
+      {/* Active reservation banner */}
+      {activeReservation && bannerTimeLeft > 0 && (
+        <div style={{ margin: "0 16px 10px", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purple})`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(83,74,183,0.28)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {Icons.shield("#fff", 16)}
+            <div>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.72)", margin: 0, textTransform: "uppercase", letterSpacing: 1 }}>Reserva activa</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", margin: "1px 0 0", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeReservation.albergue?.name}</p>
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0, letterSpacing: 8, fontFamily: FONTS.display }}>{activeReservation.code.split("").join(" ")}</p>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", margin: "1px 0 0" }}>
+              {String(Math.floor(bannerTimeLeft / 60000)).padStart(2, "0")}:{String(Math.floor((bannerTimeLeft % 60000) / 1000)).padStart(2, "0")} restantes
+            </p>
+          </div>
+        </div>
+      )}
       {/* Search */}
       <div style={{ ...S.section }}>
         <div style={{ position: "relative" }}>
@@ -1096,8 +1124,8 @@ const PaymentScreen = ({ albergue, room, onBack, onConfirm }) => {
 };
 
 // 8. CONFIRMATION
-const ConfirmationScreen = ({ albergue, room, total, hours, onDone }) => {
-  const code = useRef(String(Math.floor(1000 + Math.random() * 9000))).current;
+const ConfirmationScreen = ({ albergue, room, total, hours, onDone, code: codeProp }) => {
+  const code = codeProp || useRef(String(Math.floor(1000 + Math.random() * 9000))).current;
   const [timeLeft, setTimeLeft] = useState(15 * 60);
 
   useEffect(() => {
@@ -1177,6 +1205,47 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone }) => {
     </div>
   );
 };
+
+// 8b. CHATS LIST
+const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) => (
+  <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, paddingBottom: 80, ...S.fadeIn }}>
+    <StatusBar />
+    <div style={S.header}>
+      <p style={{ fontSize: 24, fontWeight: 700, fontFamily: FONTS.display }}>Mensajes</p>
+      <p style={{ fontSize: 12, color: COLORS.textSec }}>Tus conversaciones</p>
+    </div>
+    <div style={{ padding: "0 16px" }}>
+      {chatAlbergues.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          {Icons.chat(COLORS.textTer, 48)}
+          <p style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, marginTop: 16 }}>Sin mensajes aún</p>
+          <p style={{ fontSize: 13, color: COLORS.textSec, marginTop: 6, lineHeight: 1.5 }}>
+            Podés consultar cualquier albergue antes de reservar tocando el ícono de chat en el detalle.
+          </p>
+        </div>
+      ) : (
+        chatAlbergues.map(a => (
+          <div key={a.id} onClick={() => onOpenChat(a)}
+            style={{ background: COLORS.card, borderRadius: 14, border: `1px solid ${COLORS.border}`, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "border-color 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = COLORS.purpleMid}
+            onMouseLeave={e => e.currentTarget.style.borderColor = COLORS.border}>
+            <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{(a.name || "A")[0]}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 2px" }}>{a.name}</p>
+              <p style={{ fontSize: 12, color: COLORS.textSec, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {a.address || "Tocá para ver la conversación"}
+              </p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.textTer} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+          </div>
+        ))
+      )}
+    </div>
+    <BottomNav active={activeNav} onNavigate={onNavigate} />
+  </div>
+);
 
 // 9. HISTORY
 const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, onRebook }) => {
@@ -1707,6 +1776,9 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [activeNav, setActiveNav] = useState("map");
   const [authUser, setAuthUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("rush_token") || "");
+  const [chatAlbergues, setChatAlbergues] = useState([]); // albergues the user has chatted with
+  const [chatBackTarget, setChatBackTarget] = useState("detail");
+  const [activeReservation, setActiveReservation] = useState(null); // current active booking
 
   // Cargar albergues desde API
   useEffect(() => {
@@ -1786,6 +1858,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
     setActiveNav(key);
     if (key === "map") navigate("map");
     else if (key === "favorites") navigate("favorites");
+    else if (key === "chats") navigate("chats");
     else if (key === "history") navigate("history");
     else if (key === "profile") navigate("profile");
   };
@@ -1812,9 +1885,23 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
 
   const handleSelectAlbergue = (a) => { setSelectedAlbergue(a); navigate("detail"); };
   const handleBookRoom = (r) => { setSelectedRoom(r); navigate("payment"); };
-  const handleOpenChat = () => { navigate("chat"); };
+  const handleOpenChat = () => {
+    if (selectedAlbergue) {
+      setChatAlbergues(prev => prev.some(a => a.id === selectedAlbergue.id) ? prev : [...prev, selectedAlbergue]);
+    }
+    setChatBackTarget("detail");
+    navigate("chat");
+  };
+  const handleOpenChatFromList = (albergue) => {
+    setSelectedAlbergue(albergue);
+    setChatBackTarget("chats");
+    navigate("chat");
+  };
   const handleConfirm = async (total, hours, method) => {
     setBookingInfo({ total, hours, method });
+    const fallbackCode = String(Math.floor(1000 + Math.random() * 9000));
+    let finalCode = fallbackCode;
+    let finalTotal = total;
     // Crear reserva real en la API
     if (token && selectedAlbergue && selectedRoom) {
       try {
@@ -1824,27 +1911,28 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
           hours,
           pay_method: method === "digital" ? "digital" : "cash",
         }, token);
+        finalCode = data.reservation.code || fallbackCode;
+        finalTotal = data.reservation.total || total;
         setReservations(prev => [...prev, {
           id: data.reservation.id,
           albergue_id: selectedAlbergue.id,
           room_id: selectedRoom.id,
           albergue: selectedAlbergue.name,
           room: selectedRoom.name,
-          total: data.reservation.total,
+          total: finalTotal,
           hours,
-          code: data.reservation.code,
+          code: finalCode,
           status: data.reservation.status || "completada",
           created_at: data.reservation.created_at,
         }]);
-        setBookingInfo({ total: data.reservation.total, hours, method });
+        setBookingInfo({ total: finalTotal, hours, method });
       } catch (err) {
         console.error("Error creando reserva:", err);
-        // Fallback local
         setReservations(prev => [...prev, {
           albergue_id: selectedAlbergue.id,
           room_id: selectedRoom.id,
           albergue: selectedAlbergue.name, room: selectedRoom.name,
-          total, hours, code: String(Math.floor(1000 + Math.random() * 9000)),
+          total, hours, code: finalCode,
           status: "completada",
         }]);
       }
@@ -1853,10 +1941,19 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
         albergue_id: selectedAlbergue?.id,
         room_id: selectedRoom?.id,
         albergue: selectedAlbergue.name, room: selectedRoom.name,
-        total, hours, code: String(Math.floor(1000 + Math.random() * 9000)),
+        total, hours, code: finalCode,
         status: "completada",
       }]);
     }
+    // Guardar reserva activa para el banner del mapa (15 min de ventana de check-in)
+    setActiveReservation({
+      code: finalCode,
+      albergue: selectedAlbergue,
+      room: selectedRoom,
+      hours,
+      total: finalTotal,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
     navigate("confirmation");
   };
 
@@ -1876,11 +1973,12 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "login" && <UserLoginScreen onBack={onLogout} onLogin={handleAuthSuccess} onGoRegister={() => navigate("register")} onForgot={() => navigate("forgot")} />}
       {screen === "register" && <UserRegisterScreen onBack={onLogout} onRegister={handleAuthSuccess} />}
       {screen === "forgot" && <ForgotPasswordScreen onBack={() => navigate("login")} />}
-      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} />}
+      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} />}
       {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} onChat={handleOpenChat} />}
-      {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate("detail")} activeNav={activeNav} onNavigate={handleNavigation} />}
+      {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate(chatBackTarget)} activeNav={activeNav} onNavigate={handleNavigation} />}
+      {screen === "chats" && <ChatsListScreen chatAlbergues={chatAlbergues} onOpenChat={handleOpenChatFromList} activeNav={activeNav} onNavigate={handleNavigation} />}
       {screen === "payment" && <PaymentScreen albergue={selectedAlbergue} room={selectedRoom} onBack={() => navigate("detail")} onConfirm={handleConfirm} />}
-      {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
+      {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} code={activeReservation?.code} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
       {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} />}
       {screen === "history" && <HistoryScreen
         reservations={reservations}
@@ -2463,6 +2561,32 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
   const [photos, setPhotos] = useState([]); // { url, uploading, error }
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const photoInputRef = useRef(null);
+
+  const handlePhotoFiles = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 4 - photos.length);
+    for (const file of files) {
+      const id = Date.now() + Math.random();
+      setPhotos(prev => [...prev, { url: "", uploading: true, id }]);
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const token = localStorage.getItem("rush_token");
+        try {
+          const res = await fetch(`${API_URL}/photos/upload`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ base64: ev.target.result, fileName: file.name, type: "albergue" }),
+          });
+          const d = await res.json();
+          setPhotos(prev => prev.map(p => p.id === id ? { url: d.url || ev.target.result, uploading: false, id } : p));
+        } catch {
+          setPhotos(prev => prev.map(p => p.id === id ? { url: ev.target.result, uploading: false, id } : p));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = "";
+  };
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [codeError, setCodeError] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -2600,6 +2724,7 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
         <p style={{ fontSize: 14, color: CA.textSec, margin: "0 0 24px" }}>Subí fotos generales y enviá tu solicitud</p>
 
         {/* General photos - upload real */}
+        <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoFiles} />
         <label style={{ fontSize: 13, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 8 }}>Fotos generales (fachada, entrada, recepción)</label>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
           {photos.map((p, i) => (
@@ -2618,35 +2743,11 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
             </div>
           ))}
           {photos.length < 4 && (
-            <label style={{ aspectRatio: "1", borderRadius: 12, border: `1.5px dashed ${CA.borderSec}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2, transition: "all 0.15s" }}>
-              <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
-                const files = Array.from(e.target.files || []).slice(0, 4 - photos.length);
-                for (const file of files) {
-                  const id = Date.now() + Math.random();
-                  setPhotos(prev => [...prev, { url: "", uploading: true, id }]);
-                  const reader = new FileReader();
-                  reader.onload = async (ev) => {
-                    const token = localStorage.getItem("rush_token");
-                    try {
-                      const res = await fetch(`${API_URL}/photos/upload`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ base64: ev.target.result, fileName: file.name, type: "albergue" }),
-                      });
-                      const d = await res.json();
-                      setPhotos(prev => prev.map(p => p.id === id ? { url: d.url || ev.target.result, uploading: false, id } : p));
-                    } catch {
-                      // Fallback: mostrar preview local aunque falle el upload
-                      setPhotos(prev => prev.map(p => p.id === id ? { url: ev.target.result, uploading: false, id } : p));
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                }
-                e.target.value = "";
-              }} />
+            <div onClick={() => photoInputRef.current?.click()}
+              style={{ aspectRatio: "1", borderRadius: 12, border: `1.5px dashed ${CA.borderSec}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2, transition: "all 0.15s" }}>
               {I.plus(CA.textSec)}
               <span style={{ fontSize: 9, color: CA.textTer }}>Agregar</span>
-            </label>
+            </div>
           )}
         </div>
         {photos.length > 0 && <p style={{ fontSize: 11, color: CA.greenDark, marginTop: -14, marginBottom: 16 }}>✓ {photos.length} foto{photos.length > 1 ? "s" : ""} lista{photos.length > 1 ? "s" : ""}</p>}
