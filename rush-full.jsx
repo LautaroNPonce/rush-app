@@ -2130,7 +2130,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   // Pantallas que NO muestran el sidebar (pre-login)
   const noShell = ["splash", "onboarding", "login", "register", "forgot"].includes(screen);
 
-  const Screens = () => (
+  const screenContent = (
     <>
       {screen === "splash" && <SplashScreen onFinish={() => navigate("onboarding")} />}
       {screen === "onboarding" && <UserOnboardingScreen onLogin={() => navigate("login")} onRegister={() => navigate("register")} />}
@@ -2157,11 +2157,11 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
         <div style={{ display: "flex", minHeight: "100dvh", background: COLORS.bg }}>
           <UserSideNav active={activeNav} onNavigate={handleNavigation} />
           <div style={{ flex: 1, marginLeft: 240, minHeight: "100dvh", overflowY: screen === "map" ? "hidden" : "auto" }}>
-            <Screens />
+            {screenContent}
           </div>
         </div>
       ) : (
-        <Screens />
+        screenContent
       )}
     </>
   );
