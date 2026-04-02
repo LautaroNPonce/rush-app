@@ -1583,10 +1583,23 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   }, [token]);
 
   // Cargar historial de reservas si hay token
+  const DEMO_RESERVATION = {
+    id: "demo-rev-001",
+    albergue_id: "demo-albergue-001",
+    room_id: "demo-room-001",
+    albergue: "Suite Palermo",
+    room: "Suite Premium",
+    total: 8500,
+    hours: 1,
+    code: "7391",
+    status: "completada",
+    isDemo: true,
+  };
+
   useEffect(() => {
     if (!token) return;
     api.get("/reservations", token).then(data => {
-      setReservations((data.reservations || []).map(r => ({
+      const fromApi = (data.reservations || []).map(r => ({
         id: r.id,
         albergue_id: r.albergue_id,
         room_id: r.room_id,
@@ -1597,7 +1610,8 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
         code: r.code,
         status: r.status || "completada",
         created_at: r.created_at,
-      })));
+      }));
+      setReservations([...fromApi, DEMO_RESERVATION]);
     }).catch(() => { });
   }, [token]);
 
