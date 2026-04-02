@@ -627,12 +627,11 @@ const UserRegisterScreen = ({ onBack, onRegister }) => {
     } finally { setLoading(false); }
   };
   return (
-    <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, ...S.fadeIn }}>
-      <StatusBar />
-      <div style={{ padding: "8px 20px" }}>
-        <div style={{ cursor: "pointer", marginBottom: 20 }} onClick={onBack}>{Icons.back()}</div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: FONTS.display, marginBottom: 6 }}>Crear cuenta</h1>
-        <p style={{ fontSize: 14, color: COLORS.textSec, marginBottom: 28 }}>Tu información es 100% privada</p>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: COLORS.card, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif", ...S.fadeIn }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "0 auto" }}>
+        <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={onBack}>{Icons.back()}</div>
+        <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: FONTS.display, margin: "0 0 6px" }}>Crear cuenta</h1>
+        <p style={{ fontSize: 14, color: COLORS.textSec, margin: "0 0 28px" }}>Tu información es 100% privada</p>
         {[
           { label: "Nombre", icon: Icons.user(COLORS.textSec, 18), ph: "Tu nombre", val: name, set: setName },
           { label: "Email", icon: Icons.mail(), ph: "tu@email.com", val: email, set: setEmail },
