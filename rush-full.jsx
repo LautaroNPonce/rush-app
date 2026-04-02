@@ -173,25 +173,27 @@ const Icons = {
 // ---- STYLES ----
 const S = {
   phone: {
-    width: 375, maxWidth: "100%", minHeight: "100dvh", background: COLORS.bg,
+    width: "100%", minHeight: "100dvh", background: COLORS.bg,
     fontFamily: FONTS.sans, color: COLORS.text, position: "relative",
-    margin: "0 auto", overflow: "hidden",
+    overflowX: "hidden",
   },
   statusBar: {
-    height: 44, padding: "14px 20px 0", display: "flex", justifyContent: "space-between",
-    alignItems: "center", fontSize: 13, fontWeight: 600,
+    height: "env(safe-area-inset-top, 44px)", flexShrink: 0,
   },
   header: { padding: "8px 20px 12px" },
   navBar: {
-    position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-    width: 375, maxWidth: "100%", height: 64, background: COLORS.card,
+    position: "fixed", bottom: 0, left: 0, right: 0,
+    background: COLORS.card,
     borderTop: `1px solid ${COLORS.border}`, display: "flex",
-    justifyContent: "space-around", alignItems: "center", zIndex: 100,
+    justifyContent: "space-around", alignItems: "flex-start",
+    paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom, 12px)",
+    zIndex: 100,
   },
   navItem: (active) => ({
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-    cursor: "pointer", padding: "4px 12px", opacity: active ? 1 : 0.5,
-    transition: "all 0.2s",
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+    cursor: "pointer", padding: "0 16px", opacity: active ? 1 : 0.45,
+    transition: "opacity 0.15s",
+    minWidth: 44, minHeight: 44, justifyContent: "center",
   }),
   navLabel: { fontSize: 10, fontWeight: 500 },
   btn: (bg = COLORS.purple, color = "#fff") => ({
@@ -235,7 +237,10 @@ const UserGlobalCSS = () => (
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
     @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { background: #f0f0f0; }
+    html, body, #root { width: 100%; min-height: 100dvh; }
+    body { background: ${COLORS.bg}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: hidden; }
+    button, input, textarea, select { -webkit-appearance: none; appearance: none; }
+    input, textarea { font-size: 16px !important; } /* evita zoom en iOS */
     @keyframes rushFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes rushPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     @keyframes rushSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -256,7 +261,9 @@ const UserGlobalCSS = () => (
 );
 
 // ---- COMPONENTS ----
-const StatusBar = ({ light }) => null;
+const StatusBar = ({ light }) => (
+  <div style={{ height: "env(safe-area-inset-top, 44px)", flexShrink: 0 }} />
+);
 
 const HeartIcon = (c = COLORS.textSec, s = 22, filled = false) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={filled ? c : "none"} stroke={c} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
@@ -727,8 +734,8 @@ const LeafletMap = ({ onSelectAlbergue, albergues = [] }) => {
   };
 
   return (
-    <div style={{ position: "relative", margin: "0 20px 12px", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-      <div ref={mapRef} style={{ height: 240, width: "100%", borderRadius: 16 }} />
+    <div style={{ position: "relative", marginBottom: 12, overflow: "hidden" }}>
+      <div ref={mapRef} style={{ height: 280, width: "100%" }} />
       {/* Locate me button */}
       <button
         onClick={centerOnUser}
@@ -791,7 +798,7 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
   }
 
   return (
-    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
+    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
       <div style={S.header}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1208,7 +1215,7 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone, code: codePr
 
 // 8b. CHATS LIST
 const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) => (
-  <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, paddingBottom: 80, ...S.fadeIn }}>
+  <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
     <StatusBar />
     <div style={S.header}>
       <p style={{ fontSize: 24, fontWeight: 700, fontFamily: FONTS.display }}>Mensajes</p>
@@ -1305,7 +1312,7 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
   };
 
   return (
-    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
+    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
       <div style={S.header}>
         <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Historial</h2>
@@ -1422,7 +1429,7 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
 
 // 10. FAVORITES
 const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate }) => (
-  <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
+  <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
     <StatusBar />
     <div style={S.header}>
       <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Favoritos</h2>
@@ -1499,7 +1506,7 @@ const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser }) => {
   );
 
   return (
-    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: 80, ...S.fadeIn }}>
+    <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
       <div style={S.header}>
         <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: FONTS.display }}>Perfil</h2>
@@ -3773,10 +3780,10 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
         )}
 
         {/* ── Main Content ── */}
-        <div style={{ flex: 1, marginLeft: isMobile ? 0 : 240, paddingBottom: isMobile ? 80 : 32 }}>
+        <div style={{ flex: 1, marginLeft: isMobile ? 0 : 240, paddingBottom: isMobile ? "calc(70px + env(safe-area-inset-bottom, 12px))" : 32 }}>
           {/* Top bar */}
           <div style={{
-            padding: isMobile ? "16px 20px" : "20px 32px", display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: isMobile ? "16px 20px" : "20px 32px", paddingTop: isMobile ? "env(safe-area-inset-top, 16px)" : "20px", display: "flex", justifyContent: "space-between", alignItems: "center",
             background: CA.card, borderBottom: `1px solid ${CA.border}`, position: "sticky", top: 0, zIndex: 50
           }}>
             <div>
@@ -3813,10 +3820,10 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
 
         {/* ── Mobile Bottom Nav ── */}
         {isMobile && (
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 64, background: CA.card, borderTop: `1px solid ${CA.border}`, display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100 }}>
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: CA.card, borderTop: `1px solid ${CA.border}`, display: "flex", justifyContent: "space-around", alignItems: "flex-start", paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom, 12px)", zIndex: 100 }}>
             {NAV_ITEMS.map(item => (
               <div key={item.key} onClick={() => setPage(item.key)}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "6px 14px", opacity: page === item.key ? 1 : 0.45, transition: "all 0.2s" }}>
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "0 12px", opacity: page === item.key ? 1 : 0.45, transition: "opacity 0.15s", minWidth: 44, minHeight: 44, justifyContent: "center" }}>
                 {item.icon(page === item.key ? CA.purple : CA.textSec)}
                 <span style={{ fontSize: 10, fontWeight: page === item.key ? 700 : 500, color: page === item.key ? CA.purple : CA.textSec }}>{item.label}</span>
               </div>
@@ -4546,8 +4553,8 @@ const UStarIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="#0F6E56"
 const UCheckIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>;
 
 const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
-  <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: UC.card, padding: 20, fontFamily: "'DM Sans', sans-serif" }}>
-    <div style={{ width: "100%", maxWidth: 400, textAlign: "center", animation: "rushEntry 0.5s ease" }}>
+  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.card, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ width: "100%", textAlign: "center", animation: "rushEntry 0.5s ease" }}>
       <div style={{ width: 88, height: 88, borderRadius: 24, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 38, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
       </div>
@@ -4574,8 +4581,8 @@ const MainWelcome = ({ onRegister, onLogin, onAdmin }) => (
 );
 
 const UnifiedAdminWelcome = ({ onBack, onRegister, onLogin }) => (
-  <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: UC.bg, padding: 20, fontFamily: "'DM Sans', sans-serif" }}>
-    <div style={{ width: "100%", maxWidth: 420, textAlign: "center", animation: "rushEntry 0.4s ease" }}>
+  <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ width: "100%", textAlign: "center", animation: "rushEntry 0.4s ease" }}>
       <div style={{ width: 80, height: 80, borderRadius: 22, background: UC.purple, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
         <span style={{ fontSize: 34, fontWeight: 800, color: "#fff", fontFamily: UFONT }}>R</span>
       </div>
@@ -4632,8 +4639,8 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
 
   // Forgot password - sent confirmation
   if (showForgot && forgotSent) return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: UC.bg, padding: 20, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 420, animation: "rushEntry 0.4s ease" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(""); }}>{UBackArrow}</div>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
           <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
@@ -4652,8 +4659,8 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
 
   // Forgot password - form
   if (showForgot) return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: UC.bg, padding: 20, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 420, animation: "rushEntry 0.4s ease" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={() => { setShowForgot(false); setForgotError(""); }}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Recuperar contrase\u00f1a"}</h1>
         <p style={{ fontSize: 14, color: UC.textSec, margin: "0 0 28px", lineHeight: 1.6 }}>{"Ingres\u00e1 tu email y te enviaremos un link para restablecer tu contrase\u00f1a."}</p>
@@ -4669,8 +4676,8 @@ const UnifiedLoginScreen = ({ onBack, onLogin, role }) => {
   );
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: UC.bg, padding: 20, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 420, animation: "rushEntry 0.4s ease" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", background: UC.bg, padding: "env(safe-area-inset-top, 48px) 28px 40px", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ width: "100%", animation: "rushEntry 0.4s ease" }}>
         <div style={{ cursor: "pointer", marginBottom: 28 }} onClick={onBack}>{UBackArrow}</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, fontFamily: UFONT, margin: "0 0 6px" }}>{"Inici\u00e1 sesi\u00f3n"}</h1>
         <p style={{ fontSize: 14, color: UC.textSec, margin: "0 0 28px" }}>{subtitle}</p>
@@ -4703,9 +4710,13 @@ export default function RushUnified() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { background: #FAFAFA; }
+        html, body, #root { width: 100%; min-height: 100dvh; }
+        body { background: #FAFAFA; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        button, input, textarea, select { -webkit-appearance: none; appearance: none; }
+        input, textarea { font-size: 16px !important; }
         @keyframes rushEntry { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: #534AB7 !important; }
+        ::-webkit-scrollbar { display: none; }
       `}</style>
       {screen === "select" && <MainWelcome onRegister={() => go("userRegister")} onLogin={() => { setLoginRole("user"); go("login"); }} onAdmin={() => go("adminWelcome")} />}
       {screen === "adminWelcome" && <UnifiedAdminWelcome onBack={() => go("select")} onRegister={() => go("adminRegister")} onLogin={() => { setLoginRole("admin"); go("login"); }} />}
