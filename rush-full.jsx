@@ -1949,10 +1949,22 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [chatBackTarget, setChatBackTarget] = useState("detail");
   const [activeReservation, setActiveReservation] = useState(null); // current active booking
 
-  // Cargar albergues desde API
+  // Cargar albergues desde API + albergue del admin si está en localStorage
   useEffect(() => {
     api.get("/albergues").then(data => {
-      setAlbergues((data.albergues || []).map(formatAlbergue));
+      const fromApi = (data.albergues || []).map(formatAlbergue);
+      // Si hay un admin logueado en otra tab, incluir su albergue aunque no esté verificado
+      try {
+        const adminRaw = localStorage.getItem("rush_admin_albergue");
+        if (adminRaw) {
+          const adminAlbergue = formatAlbergue(JSON.parse(adminRaw));
+          if (adminAlbergue?.id && !fromApi.find(a => a.id === adminAlbergue.id)) {
+            setAlbergues([adminAlbergue, ...fromApi]);
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+      setAlbergues(fromApi);
     }).catch(err => console.error("Error cargando albergues:", err));
   }, []);
 
@@ -2396,6 +2408,37 @@ const AdminLoginScreen = ({ onBack, onLogin }) => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async () => {
+    if (!email || !pass) { setError("Completá email y contraseña"); return; }
+    setLoading(true); setError("");
+    try {
+      const data = await api.post("/auth/login", { email, password: pass });
+      const token = data.token;
+      localStorage.setItem("rush_admin_token", token);
+      localStorage.setItem("rush_admin_user", JSON.stringify(data.user));
+      // Intentar cargar el albergue del admin para mostrarlo en el mapa del usuario
+      try {
+        const res = await api.get("/admin/albergue", token);
+        if (res?.albergue) {
+          localStorage.setItem("rush_admin_albergue", JSON.stringify(res.albergue));
+        }
+      } catch {
+        // Si no existe ese endpoint, buscar entre todos los albergues
+        try {
+          const all = await api.get("/albergues");
+          const mine = (all.albergues || []).find(a => a.owner_email === email || a.user_id === data.user?.id);
+          if (mine) localStorage.setItem("rush_admin_albergue", JSON.stringify(mine));
+        } catch { /* silencioso */ }
+      }
+      onLogin(data.user);
+    } catch (err) {
+      setError(err.message || "Email o contraseña incorrectos");
+    } finally { setLoading(false); }
+  };
+
   return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: CA.bg, fontFamily: "'DM Sans', sans-serif", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 420, animation: "fadeUp 0.4s ease" }}>
@@ -2405,8 +2448,9 @@ const AdminLoginScreen = ({ onBack, onLogin }) => {
         <FormInput label="Email" icon={I.mail()} placeholder="tu@albergue.com" value={email} onChange={setEmail} />
         <FormInput label="Contraseña" icon={I.lock()} placeholder="Tu contraseña" value={pass} onChange={setPass}
           type={showPass ? "text" : "password"} showToggle onToggle={() => setShowPass(!showPass)} toggleState={showPass} />
-        <p style={{ fontSize: 13, color: CA.purple, fontWeight: 600, textAlign: "right", cursor: "pointer", margin: "-8px 0 24px" }} onClick={() => alert("Funcionalidad disponible pr\u00f3ximamente. Contact\u00e1 a soporte@rush.app")}>{"¿Olvidaste tu contrase\u00f1a?"}</p>
-        <PrimaryButton onClick={onLogin}>Iniciar sesión</PrimaryButton>
+        {error && <p style={{ fontSize: 13, color: CA.red, marginBottom: 12, padding: "8px 12px", background: CA.redLight, borderRadius: 10 }}>{error}</p>}
+        <p style={{ fontSize: 13, color: CA.purple, fontWeight: 600, textAlign: "right", cursor: "pointer", margin: "-8px 0 24px" }} onClick={() => alert("Contactá a soporte@rush.app")}>{"¿Olvidaste tu contraseña?"}</p>
+        <PrimaryButton onClick={handleLogin} disabled={loading}>{loading ? "Ingresando..." : "Iniciar sesión"}</PrimaryButton>
       </div>
     </div>
   );
@@ -3851,7 +3895,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         input:focus { border-color: ${CA.purple} !important; }
       `}</style>
-      <AdminLoginScreen onBack={onLogout} onLogin={() => setAuthState("dashboard")} />
+      <AdminLoginScreen onBack={onLogout} onLogin={(_user) => setAuthState("dashboard")} />
     </>
   );
   if (authState === "step1") return (
