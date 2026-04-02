@@ -150,6 +150,12 @@ const Icons = {
   filter: (c = COLORS.textSec, s = 16) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
   ),
+  chat: (c = COLORS.textSec, s = 20) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+  ),
+  send: (c = "#fff", s = 16) => (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+  ),
   creditCard: (c = COLORS.textSec, s = 20) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
   ),
@@ -827,13 +833,16 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
 };
 
 // 6. DETAIL
-const DetailScreen = ({ albergue, onBack, onBookRoom, isFavorite, onToggleFavorite }) => (
+const DetailScreen = ({ albergue, onBack, onBookRoom, isFavorite, onToggleFavorite, onChat }) => (
   <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, paddingBottom: 20, ...S.fadeIn }}>
     {/* Hero */}
     <div style={{ height: 220, background: `linear-gradient(135deg, ${COLORS.purpleDark} 0%, ${COLORS.purple} 50%, ${COLORS.purpleMid} 100%)`, position: "relative" }}>
       <StatusBar light />
       <div style={{ position: "absolute", top: 48, left: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }} onClick={onBack}>
         {Icons.back("#fff")}
+      </div>
+      <div style={{ position: "absolute", top: 48, right: 60, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }} onClick={onChat}>
+        {Icons.chat("#fff", 18)}
       </div>
       <div style={{ position: "absolute", top: 48, right: 16, width: 36, height: 36, borderRadius: "50%", background: isFavorite ? "rgba(229,57,53,0.85)" : "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }} onClick={onToggleFavorite}>
         {HeartIcon("#fff", 18, isFavorite)}
@@ -864,7 +873,14 @@ const DetailScreen = ({ albergue, onBack, onBookRoom, isFavorite, onToggleFavori
           <span key={t} style={S.badge(COLORS.purpleLight, COLORS.purple)}>{t}</span>
         ))}
       </div>
-      <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: "16px 0" }} />
+      {/* Chat CTA */}
+      {onChat && (
+        <button onClick={onChat} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 16px", borderRadius: 12, border: `1.5px solid ${COLORS.purple}`, background: COLORS.purpleLight, cursor: "pointer", marginBottom: 14, fontFamily: FONTS.sans }}>
+          {Icons.chat(COLORS.purple, 16)}
+          <span style={{ fontSize: 14, fontWeight: 600, color: COLORS.purple }}>Consultar antes de reservar</span>
+        </button>
+      )}
+      <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: "4px 0 16px" }} />
       {/* Rooms */}
       <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Habitaciones</p>
       {albergue.rooms.map(r => (
@@ -1554,6 +1570,131 @@ const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser }) => {
   );
 };
 
+// 12. CHAT SCREEN
+const ChatScreen = ({ albergue, token, authUser, onBack, activeNav, onNavigate }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const bottomRef = useRef(null);
+  const pollRef = useRef(null);
+
+  const loadMessages = useCallback(async () => {
+    if (!token || !albergue?.id) { setLoading(false); return; }
+    try {
+      const data = await api.get(`/messages/${albergue.id}`, token);
+      setMessages(data.messages || []);
+    } catch {
+      // silencio — sin token o sin conexión
+    }
+    setLoading(false);
+  }, [token, albergue?.id]);
+
+  useEffect(() => {
+    loadMessages();
+    pollRef.current = setInterval(loadMessages, 8000);
+    return () => clearInterval(pollRef.current);
+  }, [loadMessages]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || sending || !token) return;
+    setSending(true);
+    const optimistic = { id: "tmp-" + Date.now(), sender_role: "user", content: input.trim(), created_at: new Date().toISOString() };
+    setMessages(prev => [...prev, optimistic]);
+    setInput("");
+    try {
+      await api.post(`/messages/${albergue.id}`, { content: optimistic.content }, token);
+      loadMessages();
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+    }
+    setSending(false);
+  };
+
+  const handleKey = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+
+  const fmtTime = (iso) => {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  return (
+    <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.bg, display: "flex", flexDirection: "column", ...S.fadeIn }}>
+      {/* Header */}
+      <div style={{ background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, padding: "52px 16px 12px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <div onClick={onBack} style={{ cursor: "pointer", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {Icons.back()}
+        </div>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{(albergue?.name || "A")[0]}</span>
+        </div>
+        <div>
+          <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{albergue?.name}</p>
+          <p style={{ fontSize: 11, color: COLORS.green, margin: 0, fontWeight: 500 }}>● En línea</p>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px 0", color: COLORS.textSec, fontSize: 13 }}>Cargando conversación...</div>
+        ) : messages.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            {Icons.chat(COLORS.textTer, 40)}
+            <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 12 }}>Iniciá la conversación</p>
+            <p style={{ fontSize: 12, color: COLORS.textTer, marginTop: 4 }}>Preguntá lo que necesites antes de reservar</p>
+          </div>
+        ) : (
+          messages.map((m, i) => {
+            const isMe = m.sender_role === "user";
+            return (
+              <div key={m.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", marginBottom: 12 }}>
+                <div style={{
+                  maxWidth: "78%", padding: "10px 14px", borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                  background: isMe ? COLORS.purple : COLORS.card,
+                  border: isMe ? "none" : `1px solid ${COLORS.border}`,
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                }}>
+                  {!isMe && <p style={{ fontSize: 11, fontWeight: 600, color: COLORS.purple, margin: "0 0 4px" }}>{albergue?.name}</p>}
+                  <p style={{ fontSize: 14, color: isMe ? "#fff" : COLORS.text, margin: 0, lineHeight: 1.45 }}>{m.content}</p>
+                </div>
+                <span style={{ fontSize: 10, color: COLORS.textTer, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>{m.created_at ? fmtTime(m.created_at) : ""}</span>
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ background: COLORS.card, borderTop: `1px solid ${COLORS.border}`, padding: "10px 12px", display: "flex", gap: 8, alignItems: "flex-end", flexShrink: 0, paddingBottom: 24 }}>
+        {!token ? (
+          <p style={{ fontSize: 13, color: COLORS.textSec, textAlign: "center", flex: 1, padding: "8px 0" }}>Iniciá sesión para enviar mensajes</p>
+        ) : (
+          <>
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder="Escribí tu consulta..."
+              rows={1}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 20, border: `1.5px solid ${COLORS.border}`, fontSize: 14, fontFamily: FONTS.sans, resize: "none", outline: "none", maxHeight: 80, background: COLORS.bg, color: COLORS.text, lineHeight: 1.4 }}
+            />
+            <button onClick={sendMessage} disabled={sending || !input.trim()}
+              style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: input.trim() ? COLORS.purple : COLORS.border, cursor: input.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
+              {Icons.send("#fff", 16)}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ---- MAIN APP ----
 function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [screen, setScreen] = useState(startScreen);
@@ -1671,6 +1812,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
 
   const handleSelectAlbergue = (a) => { setSelectedAlbergue(a); navigate("detail"); };
   const handleBookRoom = (r) => { setSelectedRoom(r); navigate("payment"); };
+  const handleOpenChat = () => { navigate("chat"); };
   const handleConfirm = async (total, hours, method) => {
     setBookingInfo({ total, hours, method });
     // Crear reserva real en la API
@@ -1735,7 +1877,8 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "register" && <UserRegisterScreen onBack={onLogout} onRegister={handleAuthSuccess} />}
       {screen === "forgot" && <ForgotPasswordScreen onBack={() => navigate("login")} />}
       {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} />}
-      {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} />}
+      {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} onChat={handleOpenChat} />}
+      {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate("detail")} activeNav={activeNav} onNavigate={handleNavigation} />}
       {screen === "payment" && <PaymentScreen albergue={selectedAlbergue} room={selectedRoom} onBack={() => navigate("detail")} onConfirm={handleConfirm} />}
       {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
       {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} />}
@@ -1828,11 +1971,14 @@ const I = {
   eye: (c = CA.textSec) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>,
   eyeOff: (c = CA.textSec) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
   trash: (c = CA.red) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>,
+  chat: (c = CA.textSec) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
+  send: (c = "#fff") => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>,
 };
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Inicio", icon: I.dashboard },
   { key: "reservations", label: "Reservas", icon: I.calendar },
+  { key: "messages", label: "Mensajes", icon: I.chat },
   { key: "pricing", label: "Precios", icon: I.dollar },
   { key: "metrics", label: "Métricas", icon: I.chart },
   { key: "settings", label: "Ajustes", icon: I.settings },
@@ -2314,7 +2460,8 @@ const OnboardingStep3 = ({ data, setData, onNext, onBack }) => {
 // ─── ONBOARDING STEP 4: Photos & Verification ───
 const OnboardingStep4 = ({ data, onBack, onFinish }) => {
   const [accepted, setAccepted] = useState(false);
-  const [photoCount, setPhotoCount] = useState(0);
+  const [photos, setPhotos] = useState([]); // { url, uploading, error }
+  const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [codeError, setCodeError] = useState(false);
@@ -2452,24 +2599,57 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
         <h2 style={{ fontSize: 24, fontWeight: 800, fontFamily: FONT_ADMIN, margin: "0 0 4px" }}>Último paso</h2>
         <p style={{ fontSize: 14, color: CA.textSec, margin: "0 0 24px" }}>Subí fotos generales y enviá tu solicitud</p>
 
-        {/* General photos - exterior/fachada */}
+        {/* General photos - upload real */}
         <label style={{ fontSize: 13, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 8 }}>Fotos generales (fachada, entrada, recepción)</label>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
-          {Array.from({ length: Math.min(photoCount, 4) }, (_, i) => (
-            <div key={i} style={{ aspectRatio: "1", borderRadius: 12, background: `linear-gradient(135deg, ${CA.purpleDark}, ${CA.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {I.image("#fff")}
+          {photos.map((p, i) => (
+            <div key={i} style={{ aspectRatio: "1", borderRadius: 12, position: "relative", overflow: "hidden" }}>
+              {p.uploading ? (
+                <div style={{ width: "100%", height: "100%", background: CA.purpleLight, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 10, color: CA.purple }}>Subiendo...</span>
+                </div>
+              ) : (
+                <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              )}
+              <div onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
+                style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>×</span>
+              </div>
             </div>
           ))}
-          {photoCount < 4 && (
-            <div onClick={() => setPhotoCount(p => p + 1)}
-              style={{ aspectRatio: "1", borderRadius: 12, border: `1.5px dashed ${CA.borderSec}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2, transition: "all 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = CA.purple}
-              onMouseLeave={e => e.currentTarget.style.borderColor = CA.borderSec}>
+          {photos.length < 4 && (
+            <label style={{ aspectRatio: "1", borderRadius: 12, border: `1.5px dashed ${CA.borderSec}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2, transition: "all 0.15s" }}>
+              <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={async (e) => {
+                const files = Array.from(e.target.files || []).slice(0, 4 - photos.length);
+                for (const file of files) {
+                  const id = Date.now() + Math.random();
+                  setPhotos(prev => [...prev, { url: "", uploading: true, id }]);
+                  const reader = new FileReader();
+                  reader.onload = async (ev) => {
+                    const token = localStorage.getItem("rush_token");
+                    try {
+                      const res = await fetch(`${API_URL}/photos/upload`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ base64: ev.target.result, fileName: file.name, type: "albergue" }),
+                      });
+                      const d = await res.json();
+                      setPhotos(prev => prev.map(p => p.id === id ? { url: d.url || ev.target.result, uploading: false, id } : p));
+                    } catch {
+                      // Fallback: mostrar preview local aunque falle el upload
+                      setPhotos(prev => prev.map(p => p.id === id ? { url: ev.target.result, uploading: false, id } : p));
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                }
+                e.target.value = "";
+              }} />
               {I.plus(CA.textSec)}
               <span style={{ fontSize: 9, color: CA.textTer }}>Agregar</span>
-            </div>
+            </label>
           )}
         </div>
+        {photos.length > 0 && <p style={{ fontSize: 11, color: CA.greenDark, marginTop: -14, marginBottom: 16 }}>✓ {photos.length} foto{photos.length > 1 ? "s" : ""} lista{photos.length > 1 ? "s" : ""}</p>}
 
         {/* Room photos summary - read only from step 3 */}
         <label style={{ fontSize: 13, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 8 }}>Fotos por habitación (cargadas en el paso anterior)</label>
@@ -2784,6 +2964,159 @@ const PricingView = ({ rooms, setRooms }) => {
           <p style={{ margin: "2px 0 0", fontSize: 13, color: CA.purple }}>Configurá descuentos por horario, día de la semana o fechas especiales</p>
         </div>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={CA.purple} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+      </div>
+    </div>
+  );
+};
+
+// ─── MESSAGES ───
+const MessagesView = () => {
+  const [conversations, setConversations] = useState([]);
+  const [activeConv, setActiveConv] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [albergueId, setAlbergueId] = useState(null);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const bottomRef = useRef(null);
+  const token = localStorage.getItem("rush_token");
+
+  useEffect(() => {
+    api.get("/messages/admin/conversations", token)
+      .then(data => { setConversations(data.conversations || []); setAlbergueId(data.albergue_id); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!activeConv || !albergueId) return;
+    setLoadingMsgs(true);
+    const load = () => api.get(`/messages/${albergueId}?user_id=${activeConv.user_id}`, token)
+      .then(data => { setMessages(data.messages || []); setLoadingMsgs(false); })
+      .catch(() => setLoadingMsgs(false));
+    load();
+    const t = setInterval(load, 8000);
+    return () => clearInterval(t);
+  }, [activeConv, albergueId]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || sending || !albergueId || !activeConv) return;
+    setSending(true);
+    const optimistic = { id: "tmp-" + Date.now(), sender_role: "admin", content: input.trim(), created_at: new Date().toISOString() };
+    setMessages(prev => [...prev, optimistic]);
+    setInput("");
+    try {
+      await api.post(`/messages/${albergueId}`, { content: optimistic.content, user_id: activeConv.user_id }, token);
+    } catch { setMessages(prev => prev.filter(m => m.id !== optimistic.id)); }
+    setSending(false);
+  };
+
+  const fmtTime = (iso) => {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const fmtDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "60px 0", color: CA.textSec }}>Cargando conversaciones...</div>;
+
+  return (
+    <div style={{ display: "flex", height: "calc(100vh - 120px)", minHeight: 500, gap: 16, animation: "fadeUp 0.4s ease" }}>
+      {/* Sidebar — lista de conversaciones */}
+      <div style={{ width: 280, flexShrink: 0, background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "16px 18px", borderBottom: `1px solid ${CA.border}` }}>
+          <p style={{ fontSize: 16, fontWeight: 700, margin: 0, fontFamily: FONT_ADMIN }}>Conversaciones</p>
+          <p style={{ fontSize: 12, color: CA.textSec, margin: "2px 0 0" }}>{conversations.length} usuario{conversations.length !== 1 ? "s" : ""}</p>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {conversations.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 16px" }}>
+              {I.chat(CA.textTer)}
+              <p style={{ fontSize: 13, color: CA.textSec, marginTop: 10 }}>Sin mensajes aún</p>
+              <p style={{ fontSize: 12, color: CA.textTer, marginTop: 4 }}>Los usuarios te escribirán desde el detalle del albergue</p>
+            </div>
+          ) : conversations.map(c => (
+            <div key={c.user_id} onClick={() => { setActiveConv(c); setMessages([]); }}
+              style={{ padding: "12px 16px", borderBottom: `1px solid ${CA.border}`, cursor: "pointer", background: activeConv?.user_id === c.user_id ? CA.purpleLight : "transparent", transition: "background 0.15s" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${CA.purpleDark}, ${CA.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{(c.user_name || "U")[0].toUpperCase()}</span>
+                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{c.user_name}</span>
+                </div>
+                {c.unread > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, background: CA.purple, color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>{c.unread}</span>
+                )}
+              </div>
+              <p style={{ fontSize: 12, color: CA.textSec, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.last_message}</p>
+              <p style={{ fontSize: 11, color: CA.textTer, margin: "3px 0 0" }}>{c.last_at ? fmtDate(c.last_at) : ""}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Panel de chat */}
+      <div style={{ flex: 1, background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {!activeConv ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: CA.textSec }}>
+            {I.chat(CA.textTer)}
+            <p style={{ marginTop: 12, fontSize: 14 }}>Seleccioná una conversación</p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{ padding: "16px 20px", borderBottom: `1px solid ${CA.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${CA.purpleDark}, ${CA.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{(activeConv.user_name || "U")[0].toUpperCase()}</span>
+              </div>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{activeConv.user_name}</p>
+                <p style={{ fontSize: 11, color: CA.textSec, margin: 0 }}>Usuario Rush</p>
+              </div>
+            </div>
+
+            {/* Mensajes */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+              {loadingMsgs ? (
+                <p style={{ textAlign: "center", color: CA.textSec, fontSize: 13 }}>Cargando...</p>
+              ) : messages.length === 0 ? (
+                <p style={{ textAlign: "center", color: CA.textSec, fontSize: 13, marginTop: 40 }}>Sin mensajes en esta conversación</p>
+              ) : messages.map((m, i) => {
+                const isAdmin = m.sender_role === "admin";
+                return (
+                  <div key={m.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAdmin ? "flex-end" : "flex-start", marginBottom: 12 }}>
+                    <div style={{ maxWidth: "75%", padding: "10px 14px", borderRadius: isAdmin ? "14px 14px 4px 14px" : "14px 14px 14px 4px", background: isAdmin ? CA.purple : CA.bg, border: isAdmin ? "none" : `1px solid ${CA.border}` }}>
+                      <p style={{ fontSize: 14, color: isAdmin ? "#fff" : CA.text, margin: 0, lineHeight: 1.45 }}>{m.content}</p>
+                    </div>
+                    <span style={{ fontSize: 10, color: CA.textTer, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>{m.created_at ? fmtTime(m.created_at) : ""}</span>
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${CA.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
+                placeholder="Respondé al usuario..."
+                style={{ flex: 1, padding: "10px 16px", borderRadius: 20, border: `1.5px solid ${CA.border}`, fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none", background: CA.bg, color: CA.text }}
+              />
+              <button onClick={sendMessage} disabled={sending || !input.trim()}
+                style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: input.trim() ? CA.purple : CA.border, cursor: input.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.2s" }}>
+                {I.send()}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -3148,7 +3481,8 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
   const [rooms, setRooms] = useState(ROOMS_DATA);
   const [isMobile, setIsMobile] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [adminNotifs] = useState([
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [adminNotifs, setAdminNotifs] = useState([
     { id: 1, text: "Nueva reserva en Suite Premium", time: "Hace 5 min", read: false },
     { id: 2, text: "Habitaci\u00f3n Cl\u00e1sica 2 liberada", time: "Hace 20 min", read: false },
     { id: 3, text: "Rese\u00f1a nueva: \u2605\u2605\u2605\u2605\u2606", time: "Hace 1 hora", read: true },
@@ -3165,6 +3499,30 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Polling de mensajes no leídos cada 30 segundos
+  useEffect(() => {
+    const token = localStorage.getItem("rush_token");
+    if (!token) return;
+    const fetchUnread = () => {
+      api.get("/messages/admin/unread-count", token)
+        .then(data => {
+          const count = data.count || 0;
+          setUnreadMessages(count);
+          if (count > 0) {
+            setAdminNotifs(prev => {
+              const exists = prev.find(n => n.id === "msg-unread");
+              if (exists) return prev.map(n => n.id === "msg-unread" ? { ...n, text: `${count} mensaje${count > 1 ? "s" : ""} sin leer de usuarios`, read: false } : n);
+              return [{ id: "msg-unread", text: `${count} mensaje${count > 1 ? "s" : ""} sin leer de usuarios`, time: "Ahora", read: false }, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const t = setInterval(fetchUnread, 30000);
+    return () => clearInterval(t);
   }, []);
 
   // ── Auth / Onboarding Screens ──
@@ -3245,6 +3603,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     switch (page) {
       case "dashboard": return <DashboardView rooms={rooms} setRooms={setRooms} />;
       case "reservations": return <ReservationsView />;
+      case "messages": return <MessagesView />;
       case "pricing": return <PricingView rooms={rooms} setRooms={setRooms} />;
       case "metrics": return <MetricsView />;
       case "settings": return <SettingsView onLogout={onLogout} />;
@@ -3252,7 +3611,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     }
   };
 
-  const pageTitle = { dashboard: "Inicio", reservations: "Reservas", pricing: "Precios", metrics: "Métricas", settings: "Ajustes" }[page];
+  const pageTitle = { dashboard: "Inicio", reservations: "Reservas", messages: "Mensajes", pricing: "Precios", metrics: "Métricas", settings: "Ajustes" }[page];
 
   return (
     <>
@@ -3326,7 +3685,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
             <div style={{ position: "relative" }}>
               <div style={{ cursor: "pointer" }} onClick={() => setShowNotifs(!showNotifs)}>
                 {I.bell(CA.textSec)}
-                {adminNotifs.filter(n => !n.read).length > 0 && <div style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: CA.red, border: `2px solid ${CA.card}` }} />}
+                {(adminNotifs.filter(n => !n.read).length > 0 || unreadMessages > 0) && <div style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: CA.red, border: `2px solid ${CA.card}` }} />}
               </div>
               {showNotifs && (
                 <div style={{ position: "absolute", top: 32, right: 0, width: 300, background: CA.card, borderRadius: 14, border: `1px solid ${CA.border}`, boxShadow: "0 8px 30px rgba(0,0,0,0.12)", zIndex: 200, overflow: "hidden" }}>
