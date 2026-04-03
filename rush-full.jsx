@@ -2166,6 +2166,22 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
     }).catch(() => { });
   }, [token]);
 
+  // Cargar conversaciones del usuario desde API
+  useEffect(() => {
+    if (!token) return;
+    api.get("/messages/user/conversations", token).then(data => {
+      const convAlbergues = (data.conversations || [])
+        .map(c => c.albergue)
+        .filter(Boolean)
+        .map(formatAlbergue);
+      setChatAlbergues(prev => {
+        const ids = new Set(prev.map(a => a.id));
+        const nuevos = convAlbergues.filter(a => !ids.has(a.id));
+        return nuevos.length > 0 ? [...prev, ...nuevos] : prev;
+      });
+    }).catch(() => {});
+  }, [token]);
+
   // Polling mensajes no leídos del admin (cada 15s)
   useEffect(() => {
     if (!token) return;
