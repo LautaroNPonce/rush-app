@@ -993,7 +993,7 @@ const EXPLORE_CATEGORIES = [
   )},
 ];
 
-const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation, favorites = [], onToggleFavorite }) => {
+const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation, favorites = [], onToggleFavorite, unreadChats = 0 }) => {
   const w = useWindowSize();
   const isDesktop = w >= BP.md;
   const [activeFilter, setActiveFilter] = useState("Cerca");
@@ -2374,7 +2374,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "login" && <UserLoginScreen onBack={onLogout} onLogin={handleAuthSuccess} onGoRegister={() => navigate("register")} onForgot={() => navigate("forgot")} />}
       {screen === "register" && <UserRegisterScreen onBack={onLogout} onRegister={handleAuthSuccess} />}
       {screen === "forgot" && <ForgotPasswordScreen onBack={() => navigate("login")} />}
-      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} favorites={favorites} onToggleFavorite={toggleFavorite} unreadChats={unreadChats} />}
       {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} onChat={handleOpenChat} />}
       {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate(chatBackTarget)} activeNav={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />}
       {screen === "chats" && <ChatsListScreen chatAlbergues={chatAlbergues} onOpenChat={handleOpenChatFromList} activeNav={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />}
