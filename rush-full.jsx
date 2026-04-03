@@ -297,13 +297,13 @@ const HeartIcon = (c = COLORS.textSec, s = 22, filled = false) => (
 );
 
 // ─── DESKTOP SIDEBAR (usuario) ───
-const UserSideNav = ({ active, onNavigate }) => {
+const UserSideNav = ({ active, onNavigate, unreadChats = 0 }) => {
   const NAV = [
-    { key: "map",       label: "Explorar",  icon: (c) => Icons.map(c, 20) },
-    { key: "favorites", label: "Favoritos", icon: (c) => HeartIcon(c, 20, active === "favorites") },
-    { key: "chats",     label: "Mensajes",  icon: (c) => Icons.chat(c, 20) },
-    { key: "history",   label: "Historial", icon: (c) => Icons.clock(c, 20) },
-    { key: "profile",   label: "Perfil",    icon: (c) => Icons.user(c, 20) },
+    { key: "map",       label: "Explorar",  icon: (c) => Icons.map(c, 20),                              badge: 0 },
+    { key: "favorites", label: "Favoritos", icon: (c) => HeartIcon(c, 20, active === "favorites"),       badge: 0 },
+    { key: "chats",     label: "Mensajes",  icon: (c) => Icons.chat(c, 20),                              badge: unreadChats },
+    { key: "history",   label: "Historial", icon: (c) => Icons.clock(c, 20),                             badge: 0 },
+    { key: "profile",   label: "Perfil",    icon: (c) => Icons.user(c, 20),                              badge: 0 },
   ];
   return (
     <div style={{ width: 240, background: COLORS.card, borderRight: `1px solid ${COLORS.border}`, position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, display: "flex", flexDirection: "column" }}>
@@ -319,16 +319,24 @@ const UserSideNav = ({ active, onNavigate }) => {
         </div>
       </div>
       <nav style={{ flex: 1, padding: "0 12px", overflowY: "auto" }}>
-        {NAV.map(({ key, label, icon }) => {
+        {NAV.map(({ key, label, icon, badge }) => {
           const on = active === key;
           return (
             <div key={key} onClick={() => onNavigate(key)}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, cursor: "pointer", marginBottom: 2, background: on ? COLORS.purpleLight : "transparent", transition: "background 0.15s" }}
               onMouseEnter={e => { if (!on) e.currentTarget.style.background = "#F5F4FE"; }}
               onMouseLeave={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
-              {icon(on ? COLORS.purple : COLORS.textSec)}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                {icon(on ? COLORS.purple : COLORS.textSec)}
+                {badge > 0 && (
+                  <div style={{ position: "absolute", top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: COLORS.red, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: `2px solid ${COLORS.card}` }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{badge > 9 ? "9+" : badge}</span>
+                  </div>
+                )}
+              </div>
               <span style={{ fontSize: 14, fontWeight: on ? 700 : 500, color: on ? COLORS.purple : COLORS.textSec, fontFamily: FONTS.sans }}>{label}</span>
-              {on && <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.purple, marginLeft: "auto" }} />}
+              {badge > 0 && !on && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: COLORS.red, color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{badge > 9 ? "9+" : badge}</span>}
+              {on && badge === 0 && <div style={{ width: 6, height: 6, borderRadius: "50%", background: COLORS.purple, marginLeft: "auto" }} />}
             </div>
           );
         })}
@@ -340,20 +348,28 @@ const UserSideNav = ({ active, onNavigate }) => {
   );
 };
 
-const BottomNav = ({ active, onNavigate }) => {
+const BottomNav = ({ active, onNavigate, unreadChats = 0 }) => {
   const w = useWindowSize();
   if (w >= BP.md) return null;
+  const tabs = [
+    { key: "map", icon: (c) => Icons.map(c), label: "Explorar", badge: 0 },
+    { key: "favorites", icon: (c) => HeartIcon(c, 22, active === "favorites"), label: "Favoritos", badge: 0 },
+    { key: "chats", icon: (c) => Icons.chat(c, 22), label: "Mensajes", badge: unreadChats },
+    { key: "history", icon: (c) => Icons.clock(c), label: "Historial", badge: 0 },
+    { key: "profile", icon: (c) => Icons.user(c), label: "Perfil", badge: 0 },
+  ];
   return (
     <div style={S.navBar}>
-      {[
-        { key: "map", icon: (c) => Icons.map(c), label: "Explorar" },
-        { key: "favorites", icon: (c) => HeartIcon(c, 22, active === "favorites"), label: "Favoritos" },
-        { key: "chats", icon: (c) => Icons.chat(c, 22), label: "Mensajes" },
-        { key: "history", icon: (c) => Icons.clock(c), label: "Historial" },
-        { key: "profile", icon: (c) => Icons.user(c), label: "Perfil" },
-      ].map(({ key, icon, label }) => (
+      {tabs.map(({ key, icon, label, badge }) => (
         <div key={key} style={S.navItem(active === key)} onClick={() => onNavigate(key)}>
-          {icon(active === key ? COLORS.purple : COLORS.textSec)}
+          <div style={{ position: "relative" }}>
+            {icon(active === key ? COLORS.purple : COLORS.textSec)}
+            {badge > 0 && (
+              <div style={{ position: "absolute", top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: COLORS.red, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: `2px solid ${COLORS.card}` }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{badge > 9 ? "9+" : badge}</span>
+              </div>
+            )}
+          </div>
           <span style={{ ...S.navLabel, color: active === key ? COLORS.purple : COLORS.textSec }}>{label}</span>
         </div>
       ))}
@@ -1169,7 +1185,7 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
         </button>
       </div>
 
-      <BottomNav active={activeNav} onNavigate={onNavigate} />
+      <BottomNav active={activeNav} onNavigate={onNavigate} unreadChats={unreadChats} />
     </div>
   );
 };
@@ -1525,7 +1541,7 @@ const ConfirmationScreen = ({ albergue, room, total, hours, onDone, code: codePr
 };
 
 // 8b. CHATS LIST
-const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) => {
+const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate, unreadChats = 0 }) => {
   const w = useWindowSize();
   const isTablet = w >= BP.sm;
   return (
@@ -1566,13 +1582,13 @@ const ChatsListScreen = ({ chatAlbergues, onOpenChat, activeNav, onNavigate }) =
           </div>
         )}
       </div>
-      <BottomNav active={activeNav} onNavigate={onNavigate} />
+      <BottomNav active={activeNav} onNavigate={onNavigate} unreadChats={unreadChats} />
     </div>
   );
 };
 
 // 9. HISTORY
-const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, onRebook }) => {
+const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, onRebook, unreadChats = 0 }) => {
   const [reviewModal, setReviewModal] = useState(null);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -1685,7 +1701,7 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
           </div>
         )}
       </div>
-      <BottomNav active={activeNav} onNavigate={onNavigate} />
+      <BottomNav active={activeNav} onNavigate={onNavigate} unreadChats={unreadChats} />
 
       {/* Review Modal */}
       {reviewModal && (
@@ -1749,7 +1765,7 @@ const HistoryScreen = ({ reservations, activeNav, onNavigate, token, albergues, 
 };
 
 // 10. FAVORITES
-const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate }) => {
+const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, activeNav, onNavigate, unreadChats = 0 }) => {
   const ww = useWindowSize();
   const isTablet = ww >= BP.sm;
   return (
@@ -1805,13 +1821,13 @@ const FavoritesScreen = ({ favorites, onSelectAlbergue, onRemoveFavorite, active
           </div>
         )}
       </div>
-      <BottomNav active={activeNav} onNavigate={onNavigate} />
+      <BottomNav active={activeNav} onNavigate={onNavigate} unreadChats={unreadChats} />
     </div>
   );
 };
 
 // 11. PROFILE
-const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser }) => {
+const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser, unreadChats = 0 }) => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -1968,13 +1984,13 @@ const ProfileScreen = ({ onLogout, activeNav, onNavigate, authUser }) => {
           <span style={{ fontSize: 15, color: COLORS.red, fontWeight: 500 }}>{"Cerrar sesi\u00f3n"}</span>
         </div>
       </div>
-      <BottomNav active={activeNav} onNavigate={onNavigate} />
+      <BottomNav active={activeNav} onNavigate={onNavigate} unreadChats={unreadChats} />
     </div>
   );
 };
 
 // 12. CHAT SCREEN
-const ChatScreen = ({ albergue, token, authUser, onBack, activeNav, onNavigate }) => {
+const ChatScreen = ({ albergue, token, authUser, onBack, activeNav, onNavigate, unreadChats = 0 }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2114,6 +2130,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [token, setToken] = useState(localStorage.getItem("rush_token") || "");
   const [chatAlbergues, setChatAlbergues] = useState([]); // albergues the user has chatted with
   const [chatBackTarget, setChatBackTarget] = useState("detail");
+  const [unreadChats, setUnreadChats] = useState(0);
   const [activeReservation, setActiveReservation] = useState(null); // current active booking
 
   // Cargar albergues desde API — solo Suite Palermo (martin@suitepalermo.com)
@@ -2143,6 +2160,17 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       const favs = (data.favorites || []).map(formatAlbergue).filter(a => a.name?.toLowerCase().includes("palermo"));
       setFavorites(favs);
     }).catch(() => { });
+  }, [token]);
+
+  // Polling mensajes no leídos del admin (cada 15s)
+  useEffect(() => {
+    if (!token) return;
+    const poll = () => api.get("/messages/user/unread-count", token)
+      .then(d => setUnreadChats(d.count || 0))
+      .catch(() => {});
+    poll();
+    const t = setInterval(poll, 15000);
+    return () => clearInterval(t);
   }, [token]);
 
   // Cargar historial de reservas si hay token
@@ -2207,9 +2235,9 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
 
   const handleNavigation = (key) => {
     setActiveNav(key);
-    if (key === "map") navigate("map");
+    if (key === "chats") { setUnreadChats(0); navigate("chats"); }
+    else if (key === "map") navigate("map");
     else if (key === "favorites") navigate("favorites");
-    else if (key === "chats") navigate("chats");
     else if (key === "history") navigate("history");
     else if (key === "profile") navigate("profile");
   };
@@ -2341,13 +2369,13 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "forgot" && <ForgotPasswordScreen onBack={() => navigate("login")} />}
       {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} favorites={favorites} onToggleFavorite={toggleFavorite} />}
       {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} onChat={handleOpenChat} />}
-      {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate(chatBackTarget)} activeNav={activeNav} onNavigate={handleNavigation} />}
-      {screen === "chats" && <ChatsListScreen chatAlbergues={chatAlbergues} onOpenChat={handleOpenChatFromList} activeNav={activeNav} onNavigate={handleNavigation} />}
+      {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate(chatBackTarget)} activeNav={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />}
+      {screen === "chats" && <ChatsListScreen chatAlbergues={chatAlbergues} onOpenChat={handleOpenChatFromList} activeNav={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />}
       {screen === "payment" && <PaymentScreen albergue={selectedAlbergue} room={selectedRoom} onBack={() => navigate("detail")} onConfirm={handleConfirm} />}
       {screen === "confirmation" && <ConfirmationScreen albergue={selectedAlbergue} room={selectedRoom} total={bookingInfo.total} hours={bookingInfo.hours} code={activeReservation?.code} onDone={() => { setActiveNav("map"); navigate("map"); }} />}
-      {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} />}
-      {screen === "history" && <HistoryScreen reservations={reservations} activeNav={activeNav} onNavigate={handleNavigation} token={token} albergues={albergues} onRebook={(r) => { const albergue = albergues.find(a => a.id === r.albergue_id); if (albergue) handleSelectAlbergue(albergue); }} />}
-      {screen === "profile" && <ProfileScreen onLogout={handleLogout} activeNav={activeNav} onNavigate={handleNavigation} authUser={authUser} />}
+      {screen === "favorites" && <FavoritesScreen favorites={favorites} onSelectAlbergue={handleSelectAlbergue} onRemoveFavorite={(id) => { setFavorites(prev => prev.filter(a => a.id !== id)); if (token) api.del(`/favorites/${id}`, token).catch(() => { }); }} activeNav={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />}
+      {screen === "history" && <HistoryScreen reservations={reservations} activeNav={activeNav} onNavigate={handleNavigation} token={token} albergues={albergues} onRebook={(r) => { const albergue = albergues.find(a => a.id === r.albergue_id); if (albergue) handleSelectAlbergue(albergue); }} unreadChats={unreadChats} />}
+      {screen === "profile" && <ProfileScreen onLogout={handleLogout} activeNav={activeNav} onNavigate={handleNavigation} authUser={authUser} unreadChats={unreadChats} />}
     </>
   );
 
@@ -2357,7 +2385,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {/* Desktop shell: sidebar fija + contenido scrollable */}
       {isDesktop && !noShell ? (
         <div style={{ display: "flex", minHeight: "100dvh", background: COLORS.bg }}>
-          <UserSideNav active={activeNav} onNavigate={handleNavigation} />
+          <UserSideNav active={activeNav} onNavigate={handleNavigation} unreadChats={unreadChats} />
           <div style={{ flex: 1, marginLeft: 240, minHeight: "100dvh", overflowY: screen === "map" ? "hidden" : "auto" }}>
             {screenContent}
           </div>
@@ -4140,7 +4168,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
             </div>
             <nav style={{ flex: 1 }}>
               {NAV_ITEMS.map(item => (
-                <div key={item.key} onClick={() => setPage(item.key)}
+                <div key={item.key} onClick={() => { setPage(item.key); if (item.key === "messages") setUnreadMessages(0); }}
                   style={{
                     display: "flex", alignItems: "center", gap: 12, padding: "12px 24px", cursor: "pointer", transition: "all 0.15s",
                     background: page === item.key ? CA.purpleLight : "transparent",
@@ -4148,8 +4176,18 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
                   }}
                   onMouseEnter={e => { if (page !== item.key) e.currentTarget.style.background = CA.bg; }}
                   onMouseLeave={e => { if (page !== item.key) e.currentTarget.style.background = "transparent"; }}>
-                  {item.icon(page === item.key ? CA.purple : CA.textSec)}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {item.icon(page === item.key ? CA.purple : CA.textSec)}
+                    {item.key === "messages" && unreadMessages > 0 && (
+                      <div style={{ position: "absolute", top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: CA.red, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: `2px solid ${CA.card}` }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{unreadMessages > 9 ? "9+" : unreadMessages}</span>
+                      </div>
+                    )}
+                  </div>
                   <span style={{ fontSize: 14, fontWeight: page === item.key ? 700 : 500, color: page === item.key ? CA.purple : CA.textSec }}>{item.label}</span>
+                  {item.key === "messages" && unreadMessages > 0 && page !== "messages" && (
+                    <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, background: CA.red, color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{unreadMessages > 9 ? "9+" : unreadMessages}</span>
+                  )}
                 </div>
               ))}
             </nav>
@@ -4210,9 +4248,16 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
         {isMobile && (
           <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: CA.card, borderTop: `1px solid ${CA.border}`, display: "flex", justifyContent: "space-around", alignItems: "flex-start", paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom, 12px)", zIndex: 100 }}>
             {NAV_ITEMS.map(item => (
-              <div key={item.key} onClick={() => setPage(item.key)}
+              <div key={item.key} onClick={() => { setPage(item.key); if (item.key === "messages") setUnreadMessages(0); }}
                 style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "0 12px", opacity: page === item.key ? 1 : 0.45, transition: "opacity 0.15s", minWidth: 44, minHeight: 44, justifyContent: "center" }}>
-                {item.icon(page === item.key ? CA.purple : CA.textSec)}
+                <div style={{ position: "relative" }}>
+                  {item.icon(page === item.key ? CA.purple : CA.textSec)}
+                  {item.key === "messages" && unreadMessages > 0 && (
+                    <div style={{ position: "absolute", top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, background: CA.red, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: `2px solid ${CA.card}` }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{unreadMessages > 9 ? "9+" : unreadMessages}</span>
+                    </div>
+                  )}
+                </div>
                 <span style={{ fontSize: 10, fontWeight: page === item.key ? 700 : 500, color: page === item.key ? CA.purple : CA.textSec }}>{item.label}</span>
               </div>
             ))}
