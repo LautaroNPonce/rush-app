@@ -281,7 +281,8 @@ const UserGlobalCSS = () => (
       ::-webkit-scrollbar-thumb:hover { background: #B0B0B0; }
       input, textarea { font-size: 14px !important; }
     }
-    .rush-marker-icon { background: ${COLORS.purple}; color: #fff; border-radius: 20px 20px 20px 4px; padding: 4px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(83,74,183,0.35); border: 2px solid #fff; font-family: 'DM Sans', sans-serif; cursor: pointer; transform: translateY(-2px); transition: all 0.15s; }
+    .rush-marker-icon { background: #fff; color: #1A1A1A; border-radius: 20px; padding: 5px 11px; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 12px rgba(0,0,0,0.22); border: none; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s; }
+    .rush-marker-icon:hover { background: ${COLORS.purple}; color: #fff; transform: scale(1.06); }
     .rush-user-dot { width: 16px; height: 16px; border-radius: 50%; background: #378ADD; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(55,138,221,0.18); }
   `}</style>
 );
@@ -903,7 +904,7 @@ const LeafletMap = ({ onSelectAlbergue, albergues = [] }) => {
       </button>
       {/* OSM badge */}
       <div style={{ position: "absolute", top: 10, right: 10, zIndex: 1000, background: "rgba(255,255,255,0.9)", borderRadius: 8, padding: "3px 8px", fontSize: 10, color: COLORS.textSec, backdropFilter: "blur(4px)" }}>
-        🗺 OpenStreetMap
+        OpenStreetMap
       </div>
     </div>
   );
@@ -946,11 +947,33 @@ const LeafletMapDesktop = ({ onSelectAlbergue, albergues = [] }) => {
 
 // 5. MAP / EXPLORE
 const EXPLORE_CATEGORIES = [
-  { id: "Cerca", emoji: "📍", label: "Cerca" },
-  { id: "Precio", emoji: "💰", label: "Precio" },
-  { id: "Calidad", emoji: "⭐", label: "Top" },
-  { id: "Suite", emoji: "💎", label: "Suite" },
-  { id: "24hs", emoji: "🕐", label: "24hs" },
+  { id: "Cerca", label: "Cerca", icon: (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? COLORS.purple : COLORS.textSec}>
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </svg>
+  )},
+  { id: "Precio", label: "Precio", icon: (active) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? COLORS.purple : COLORS.textSec} strokeWidth="2">
+      <line x1="12" y1="1" x2="12" y2="23"/>
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+    </svg>
+  )},
+  { id: "Calidad", label: "Top", icon: (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? COLORS.purple : COLORS.textSec}>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    </svg>
+  )},
+  { id: "Suite", label: "Suite", icon: (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? COLORS.purple : COLORS.textSec} strokeWidth="1.5">
+      <path d="M12 3l2.83 5.73 6.33.92-4.58 4.47 1.08 6.29L12 17.27 6.34 20.41l1.08-6.29L2.84 9.65l6.33-.92L12 3z"/>
+    </svg>
+  )},
+  { id: "24hs", label: "24hs", icon: (active) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? COLORS.purple : COLORS.textSec} strokeWidth="2">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 3"/>
+    </svg>
+  )},
 ];
 
 const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation, favorites = [], onToggleFavorite }) => {
@@ -1003,43 +1026,44 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
   if (isDesktop) {
     return (
       <div style={{ display: "flex", height: "100dvh", background: COLORS.bg, ...S.fadeIn }}>
-        <div style={{ width: 420, flexShrink: 0, display: "flex", flexDirection: "column", background: COLORS.bg, borderRight: `1px solid ${COLORS.border}`, height: "100dvh" }}>
-          {/* Header desktop */}
-          <div style={{ padding: "20px 20px 14px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
+        {/* Left panel: search + 2-col grid */}
+        <div style={{ width: 580, flexShrink: 0, display: "flex", flexDirection: "column", background: COLORS.bg, borderRight: `1px solid ${COLORS.border}`, height: "100dvh" }}>
+          {/* Header */}
+          <div style={{ padding: "18px 20px 14px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
             <ReservaBanner />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              {Icons.map(COLORS.purple, 16)}
-              <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSec }}>Buenos Aires, Argentina</p>
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <input style={{ ...S.input, paddingLeft: 46, borderRadius: 50, background: COLORS.bg, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }} placeholder="Zona, barrio o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
+              <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
             </div>
-            <div style={{ position: "relative" }}>
-              <input style={{ ...S.input, paddingLeft: 44, borderRadius: 50, background: COLORS.bg, boxShadow: "0 2px 10px rgba(0,0,0,0.07)" }} placeholder="Zona, barrio o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
-              <div style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 14, overflowX: "auto", paddingBottom: 2 }}>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
               {EXPLORE_CATEGORIES.map(c => (
-                <span key={c.id} style={{ ...S.chip(activeFilter === c.id), display: "flex", alignItems: "center", gap: 5 }} onClick={() => setActiveFilter(c.id)}>
-                  <span>{c.emoji}</span> {c.label}
+                <span key={c.id} style={{ ...S.chip(activeFilter === c.id), display: "flex", alignItems: "center", gap: 6 }} onClick={() => setActiveFilter(c.id)}>
+                  {c.icon(activeFilter === c.id)} {c.label}
                 </span>
               ))}
             </div>
           </div>
-          {/* List */}
+          {/* 2-column card grid */}
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px" }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSec, marginBottom: 12 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSec, marginBottom: 14 }}>
               {filtered.length} {filtered.length === 1 ? "albergue" : "albergues"} encontrados
             </p>
-            {filtered.map(a => (
-              <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} compact
-                isFavorite={isFav(a.id)} onToggleFavorite={onToggleFavorite} />
-            ))}
-            {filtered.length === 0 && (
+            {filtered.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 0" }}>
                 {Icons.search(COLORS.textTer, 36)}
                 <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 10 }}>Sin resultados para "{search}"</p>
               </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+                {filtered.map(a => (
+                  <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)}
+                    isFavorite={isFav(a.id)} onToggleFavorite={onToggleFavorite} />
+                ))}
+              </div>
             )}
           </div>
         </div>
+        {/* Right: map */}
         <div style={{ flex: 1, position: "relative" }}>
           <LeafletMapDesktop onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
         </div>
@@ -1085,8 +1109,8 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
           {EXPLORE_CATEGORIES.map(c => (
             <div key={c.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}
               onClick={() => setActiveFilter(c.id)}>
-              <div style={{ width: 54, height: 54, borderRadius: 16, background: activeFilter === c.id ? COLORS.purpleLight : COLORS.bg, border: `2px solid ${activeFilter === c.id ? COLORS.purple : COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, transition: "all 0.15s" }}>
-                {c.emoji}
+              <div style={{ width: 54, height: 54, borderRadius: 16, background: activeFilter === c.id ? COLORS.purpleLight : COLORS.bg, border: `2px solid ${activeFilter === c.id ? COLORS.purple : COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+                {c.icon(activeFilter === c.id)}
               </div>
               <span style={{ fontSize: 11, fontWeight: activeFilter === c.id ? 700 : 400, color: activeFilter === c.id ? COLORS.purple : COLORS.textSec, whiteSpace: "nowrap" }}>
                 {c.label}
@@ -1136,7 +1160,11 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
       {/* Floating map toggle */}
       <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom, 12px))", left: "50%", transform: "translateX(-50%)", zIndex: 50 }}>
         <button onClick={() => setShowMap(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 50, background: showMap ? COLORS.purple : COLORS.text, color: "#fff", border: "none", cursor: "pointer", fontFamily: FONTS.sans, fontWeight: 600, fontSize: 13, boxShadow: "0 4px 20px rgba(0,0,0,0.28)", whiteSpace: "nowrap" }}>
-          <span style={{ fontSize: 15 }}>{showMap ? "☰" : "🗺️"}</span>
+          {showMap ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          ) : (
+            Icons.map("#fff", 15)
+          )}
           {showMap ? "Ver lista" : "Ver mapa"}
         </button>
       </div>
