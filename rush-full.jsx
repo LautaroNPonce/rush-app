@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { registerServiceWorker, subscribePush, unsubscribePush } from "./src/push.js";
 
 // ═══════════════════════════════════════════════════════════════
 //  RUSH — App Unificada
@@ -2133,6 +2134,9 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   const [unreadChats, setUnreadChats] = useState(0);
   const [activeReservation, setActiveReservation] = useState(null); // current active booking
 
+  // Registrar service worker al montar
+  useEffect(() => { registerServiceWorker(); }, []);
+
   // Cargar albergues desde API — solo Suite Palermo (martin@suitepalermo.com)
   useEffect(() => {
     api.get("/albergues").then(data => {
@@ -2244,7 +2248,9 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
 
   const handleAuthSuccess = (user) => {
     setAuthUser(user);
-    setToken(localStorage.getItem("rush_token") || "");
+    const t = localStorage.getItem("rush_token") || "";
+    setToken(t);
+    subscribePush(t);
     setActiveNav("map");
     navigate("map");
   };
@@ -2350,6 +2356,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   };
 
   const handleLogout = () => {
+    unsubscribePush(token);
     localStorage.removeItem("rush_token");
     localStorage.removeItem("rush_user");
     setToken("");
