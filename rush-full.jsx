@@ -360,32 +360,92 @@ const BottomNav = ({ active, onNavigate }) => {
   );
 };
 
-const AlbergueCard = ({ albergue, onClick }) => {
-  const minPrice = Math.min(...albergue.rooms.map(r => r.price));
-  const totalAvail = albergue.rooms.reduce((a, r) => a + r.available, 0);
-  return (
-    <div style={S.card} onClick={onClick}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.purpleMid; e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.transform = "translateY(0)"; }}>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 12, background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purpleMid})`, flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{albergue.name}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              {Icons.star()}
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{albergue.rating}</span>
+const CARD_GRADIENTS = [
+  `linear-gradient(135deg, ${COLORS.purpleDark} 0%, ${COLORS.purpleMid} 100%)`,
+  `linear-gradient(135deg, #1A4E6E 0%, #2B82B0 100%)`,
+  `linear-gradient(135deg, #0F5C3A 0%, #1A9E68 100%)`,
+  `linear-gradient(135deg, #5C2D7A 0%, #A855C8 100%)`,
+  `linear-gradient(135deg, #7A3520 0%, #C85F3A 100%)`,
+];
+
+const AlbergueCard = ({ albergue, onClick, isFavorite, onToggleFavorite, compact = false }) => {
+  const minPrice = albergue.rooms?.length ? Math.min(...albergue.rooms.map(r => r.price)) : 0;
+  const totalAvail = albergue.rooms?.reduce((a, r) => a + r.available, 0) ?? 0;
+  const gradIdx = typeof albergue.id === "number" ? albergue.id % CARD_GRADIENTS.length : 0;
+  const avail = totalAvail > 0;
+
+  if (compact) {
+    // Horizontal compact card (for desktop sidebar)
+    return (
+      <div style={{ borderRadius: 14, overflow: "hidden", background: COLORS.card, cursor: "pointer", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.06)", border: `1px solid ${COLORS.border}`, display: "flex", transition: "all 0.15s" }}
+        onClick={onClick}
+        onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(83,74,183,0.14)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.06)"; e.currentTarget.style.transform = "none"; }}>
+        <div style={{ width: 90, height: 90, background: CARD_GRADIENTS[gradIdx], flexShrink: 0, position: "relative" }}>
+          {onToggleFavorite && (
+            <div style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              onClick={e => { e.stopPropagation(); onToggleFavorite(albergue); }}>
+              {HeartIcon(isFavorite ? "#E24B4A" : "#fff", 13, isFavorite)}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, padding: "10px 12px", minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: COLORS.text, fontFamily: FONTS.display, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "75%" }}>{albergue.name}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+              {Icons.star(COLORS.amber, 12)}
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{albergue.rating}</span>
             </div>
           </div>
-          <p style={{ fontSize: 12, color: COLORS.textSec, marginBottom: 6 }}>{albergue.distance} · {albergue.address}</p>
+          <p style={{ fontSize: 11, color: COLORS.textSec, marginBottom: 8 }}>{albergue.distance} · {albergue.address}</p>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>
-              ${minPrice.toLocaleString()}<span style={{ fontSize: 11, fontWeight: 400, color: COLORS.textSec }}>/h</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.purple, fontFamily: FONTS.display }}>
+              ${minPrice.toLocaleString()}<span style={{ fontSize: 10, fontWeight: 400, color: COLORS.textSec }}>/h</span>
             </span>
-            <span style={S.badge(totalAvail > 0 ? COLORS.greenLight : COLORS.redLight, totalAvail > 0 ? COLORS.greenDark : COLORS.redDark)}>
-              {totalAvail > 0 ? `${totalAvail} disponibles` : "Lleno"}
+            <span style={{ ...S.badge(avail ? COLORS.greenLight : COLORS.redLight, avail ? COLORS.greenDark : COLORS.redDark), fontSize: 10 }}>
+              {avail ? "Disponible" : "Lleno"}
             </span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full tall card (mobile / Airbnb-style)
+  return (
+    <div style={{ borderRadius: 20, overflow: "hidden", background: COLORS.card, cursor: "pointer", marginBottom: 20, boxShadow: "0 2px 16px rgba(0,0,0,0.08)", transition: "all 0.18s" }}
+      onClick={onClick}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(83,74,183,0.18)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.08)"; }}>
+      {/* Photo / gradient area */}
+      <div style={{ height: 200, background: CARD_GRADIENTS[gradIdx], position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, transparent 45%, rgba(0,0,0,0.18) 100%)" }} />
+        {/* Heart */}
+        {onToggleFavorite && (
+          <div style={{ position: "absolute", top: 12, right: 12, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.28)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 2 }}
+            onClick={e => { e.stopPropagation(); onToggleFavorite(albergue); }}>
+            {HeartIcon(isFavorite ? "#E24B4A" : "#fff", 17, isFavorite)}
+          </div>
+        )}
+        {/* Tags row at bottom */}
+        <div style={{ position: "absolute", bottom: 12, left: 12, right: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <span style={{ ...S.badge(avail ? "rgba(29,158,117,0.9)" : "rgba(226,75,74,0.9)", "#fff"), fontSize: 11, backdropFilter: "blur(8px)" }}>
+            {avail ? "✓ Disponible ahora" : "Lleno"}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.92)", padding: "5px 9px", borderRadius: 20, backdropFilter: "blur(8px)" }}>
+            {Icons.star(COLORS.amber, 13)}
+            <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{albergue.rating}</span>
+            {albergue.reviews > 0 && <span style={{ fontSize: 11, color: COLORS.textSec }}>({albergue.reviews})</span>}
+          </div>
+        </div>
+      </div>
+      {/* Info */}
+      <div style={{ padding: "13px 15px 15px" }}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, fontFamily: FONTS.display, marginBottom: 4 }}>{albergue.name}</p>
+        <p style={{ fontSize: 12, color: COLORS.textSec, marginBottom: 10 }}>{albergue.address}{albergue.distance ? ` · ${albergue.distance}` : ""}</p>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.purple, fontFamily: FONTS.display }}>${minPrice.toLocaleString()}</span>
+          <span style={{ fontSize: 12, color: COLORS.textSec, fontWeight: 400 }}>/hora</span>
         </div>
       </div>
     </div>
@@ -885,11 +945,20 @@ const LeafletMapDesktop = ({ onSelectAlbergue, albergues = [] }) => {
 };
 
 // 5. MAP / EXPLORE
-const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation }) => {
+const EXPLORE_CATEGORIES = [
+  { id: "Cerca", emoji: "📍", label: "Cerca" },
+  { id: "Precio", emoji: "💰", label: "Precio" },
+  { id: "Calidad", emoji: "⭐", label: "Top" },
+  { id: "Suite", emoji: "💎", label: "Suite" },
+  { id: "24hs", emoji: "🕐", label: "24hs" },
+];
+
+const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], onGoProfile, activeReservation, favorites = [], onToggleFavorite }) => {
   const w = useWindowSize();
   const isDesktop = w >= BP.md;
   const [activeFilter, setActiveFilter] = useState("Cerca");
   const [search, setSearch] = useState("");
+  const [showMap, setShowMap] = useState(false);
   const [bannerTimeLeft, setBannerTimeLeft] = useState(0);
 
   useEffect(() => {
@@ -900,7 +969,8 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
     return () => clearInterval(t);
   }, [activeReservation]);
 
-  const filters = ["Cerca", "Precio", "Calidad", "Suite", "24hs"];
+  const isFav = (id) => favorites.some(f => f.id === id);
+
   let filtered = albergues.filter(a =>
     search === "" ||
     a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -912,7 +982,7 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
   else if (activeFilter === "24hs") filtered = filtered.filter(a => a.rooms?.length > 0);
 
   const ReservaBanner = () => activeReservation && bannerTimeLeft > 0 ? (
-    <div style={{ margin: "0 0 12px", background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purple})`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(83,74,183,0.28)" }}>
+    <div style={{ marginBottom: 14, background: `linear-gradient(135deg, ${COLORS.purpleDark}, ${COLORS.purple})`, borderRadius: 18, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(83,74,183,0.32)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {Icons.shield("#fff", 16)}
         <div>
@@ -929,27 +999,39 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
     </div>
   ) : null;
 
-  // ── DESKTOP LAYOUT (lista izquierda + mapa derecha) ──
+  // ── DESKTOP LAYOUT ──
   if (isDesktop) {
     return (
       <div style={{ display: "flex", height: "100dvh", background: COLORS.bg, ...S.fadeIn }}>
-        {/* Left panel — search + list */}
-        <div style={{ width: 400, flexShrink: 0, display: "flex", flexDirection: "column", background: COLORS.bg, borderRight: `1px solid ${COLORS.border}`, height: "100dvh" }}>
-          {/* Header */}
-          <div style={{ padding: "24px 24px 16px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
+        <div style={{ width: 420, flexShrink: 0, display: "flex", flexDirection: "column", background: COLORS.bg, borderRight: `1px solid ${COLORS.border}`, height: "100dvh" }}>
+          {/* Header desktop */}
+          <div style={{ padding: "20px 20px 14px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}`, flexShrink: 0 }}>
             <ReservaBanner />
-            <div style={{ position: "relative" }}>
-              <input style={{ ...S.input, paddingLeft: 42, borderRadius: 14, background: COLORS.bg }} placeholder="Buscar zona o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
-              <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              {Icons.map(COLORS.purple, 16)}
+              <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSec }}>Buenos Aires, Argentina</p>
             </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12, overflowX: "auto" }}>
-              {filters.map(f => <span key={f} style={S.chip(activeFilter === f)} onClick={() => setActiveFilter(f)}>{f}</span>)}
+            <div style={{ position: "relative" }}>
+              <input style={{ ...S.input, paddingLeft: 44, borderRadius: 50, background: COLORS.bg, boxShadow: "0 2px 10px rgba(0,0,0,0.07)" }} placeholder="Zona, barrio o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
+              <div style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 14, overflowX: "auto", paddingBottom: 2 }}>
+              {EXPLORE_CATEGORIES.map(c => (
+                <span key={c.id} style={{ ...S.chip(activeFilter === c.id), display: "flex", alignItems: "center", gap: 5 }} onClick={() => setActiveFilter(c.id)}>
+                  <span>{c.emoji}</span> {c.label}
+                </span>
+              ))}
             </div>
           </div>
           {/* List */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: COLORS.textSec, marginBottom: 12 }}>{filtered.length} albergues encontrados</p>
-            {filtered.map(a => <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} />)}
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px" }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.textSec, marginBottom: 12 }}>
+              {filtered.length} {filtered.length === 1 ? "albergue" : "albergues"} encontrados
+            </p>
+            {filtered.map(a => (
+              <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} compact
+                isFavorite={isFav(a.id)} onToggleFavorite={onToggleFavorite} />
+            ))}
             {filtered.length === 0 && (
               <div style={{ textAlign: "center", padding: "40px 0" }}>
                 {Icons.search(COLORS.textTer, 36)}
@@ -958,7 +1040,6 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
             )}
           </div>
         </div>
-        {/* Right panel — full-height map */}
         <div style={{ flex: 1, position: "relative" }}>
           <LeafletMapDesktop onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
         </div>
@@ -970,38 +1051,96 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
   return (
     <div style={{ ...S.phone, minHeight: "100dvh", paddingBottom: "calc(70px + env(safe-area-inset-bottom, 12px))", ...S.fadeIn }}>
       <StatusBar />
-      <div style={S.header}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <p style={{ fontSize: 24, fontWeight: 700, fontFamily: FONTS.display }}>Rush</p>
-            <p style={{ fontSize: 12, color: COLORS.textSec }}>Tu espacio privado</p>
+
+      {/* Header: location + avatar */}
+      <div style={{ padding: "8px 18px 14px", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {Icons.map(COLORS.purple, 16)}
+            <div>
+              <p style={{ fontSize: 10, color: COLORS.textSec, letterSpacing: 0.4 }}>Tu ubicación</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, fontFamily: FONTS.display }}>Buenos Aires</p>
+            </div>
           </div>
-          <div onClick={onGoProfile} style={{ width: 38, height: 38, borderRadius: "50%", background: COLORS.purpleLight, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <div onClick={onGoProfile} style={{ width: 40, height: 40, borderRadius: "50%", background: COLORS.purpleLight, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: `2px solid ${COLORS.border}` }}>
             {Icons.user(COLORS.purple)}
           </div>
         </div>
-      </div>
-      <div style={{ padding: "0 16px 10px" }}><ReservaBanner /></div>
-      <div style={{ ...S.section }}>
+
+        {/* Search pill */}
         <div style={{ position: "relative" }}>
-          <input style={{ ...S.input, paddingLeft: 42, borderRadius: 14, background: COLORS.bg }} placeholder="Buscar zona o albergue..." value={search} onChange={e => setSearch(e.target.value)} />
-          <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
+          <input
+            style={{ ...S.input, paddingLeft: 46, borderRadius: 50, background: COLORS.bg, boxShadow: "0 2px 12px rgba(0,0,0,0.09)", border: `1.5px solid ${COLORS.border}`, fontSize: 14 }}
+            placeholder="Buscar zona o albergue..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }}>{Icons.search()}</div>
         </div>
       </div>
-      <LeafletMap onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
-      <div style={{ display: "flex", gap: 8, padding: "0 20px", marginBottom: 16, overflowX: "auto" }}>
-        {filters.map(f => <span key={f} style={S.chip(activeFilter === f)} onClick={() => setActiveFilter(f)}>{f}</span>)}
+
+      {/* Category icons row */}
+      <div style={{ overflowX: "auto", background: COLORS.card, borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ display: "flex", gap: 10, padding: "14px 18px 16px", width: "max-content" }}>
+          {EXPLORE_CATEGORIES.map(c => (
+            <div key={c.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}
+              onClick={() => setActiveFilter(c.id)}>
+              <div style={{ width: 54, height: 54, borderRadius: 16, background: activeFilter === c.id ? COLORS.purpleLight : COLORS.bg, border: `2px solid ${activeFilter === c.id ? COLORS.purple : COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, transition: "all 0.15s" }}>
+                {c.emoji}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: activeFilter === c.id ? 700 : 400, color: activeFilter === c.id ? COLORS.purple : COLORS.textSec, whiteSpace: "nowrap" }}>
+                {c.label}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={S.section}>
-        <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Cerca de vos</p>
-        {filtered.map(a => <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)} />)}
+
+      {/* Reserva activa banner */}
+      {activeReservation && bannerTimeLeft > 0 && (
+        <div style={{ padding: "14px 16px 0" }}><ReservaBanner /></div>
+      )}
+
+      {/* Map (toggle) */}
+      {showMap && (
+        <div style={{ height: 320, position: "relative" }}>
+          <LeafletMap onSelectAlbergue={onSelectAlbergue} albergues={albergues} />
+        </div>
+      )}
+
+      {/* Listing */}
+      <div style={{ padding: "18px 16px 0" }}>
+        {!showMap && (
+          <p style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, fontFamily: FONTS.display }}>
+            {activeFilter === "Cerca" ? "Cerca de vos" :
+             activeFilter === "Precio" ? "Por precio" :
+             activeFilter === "Calidad" ? "Mejor valorados" :
+             activeFilter === "Suite" ? "Suites disponibles" : "Abiertos 24hs"}
+            <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.textSec, marginLeft: 8 }}>
+              {filtered.length} {filtered.length === 1 ? "lugar" : "lugares"}
+            </span>
+          </p>
+        )}
+        {filtered.map(a => (
+          <AlbergueCard key={a.id} albergue={a} onClick={() => onSelectAlbergue(a)}
+            isFavorite={isFav(a.id)} onToggleFavorite={onToggleFavorite} />
+        ))}
         {filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "30px 0" }}>
-            {Icons.search(COLORS.textTer, 36)}
-            <p style={{ fontSize: 14, color: COLORS.textSec, marginTop: 10 }}>Sin resultados para "{search}"</p>
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            {Icons.search(COLORS.textTer, 40)}
+            <p style={{ fontSize: 15, color: COLORS.textSec, marginTop: 12 }}>Sin resultados para "{search}"</p>
           </div>
         )}
       </div>
+
+      {/* Floating map toggle */}
+      <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom, 12px))", left: "50%", transform: "translateX(-50%)", zIndex: 50 }}>
+        <button onClick={() => setShowMap(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 50, background: showMap ? COLORS.purple : COLORS.text, color: "#fff", border: "none", cursor: "pointer", fontFamily: FONTS.sans, fontWeight: 600, fontSize: 13, boxShadow: "0 4px 20px rgba(0,0,0,0.28)", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 15 }}>{showMap ? "☰" : "🗺️"}</span>
+          {showMap ? "Ver lista" : "Ver mapa"}
+        </button>
+      </div>
+
       <BottomNav active={activeNav} onNavigate={onNavigate} />
     </div>
   );
@@ -2172,7 +2311,7 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
       {screen === "login" && <UserLoginScreen onBack={onLogout} onLogin={handleAuthSuccess} onGoRegister={() => navigate("register")} onForgot={() => navigate("forgot")} />}
       {screen === "register" && <UserRegisterScreen onBack={onLogout} onRegister={handleAuthSuccess} />}
       {screen === "forgot" && <ForgotPasswordScreen onBack={() => navigate("login")} />}
-      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} />}
+      {screen === "map" && <MapScreen albergues={albergues} onSelectAlbergue={handleSelectAlbergue} activeNav={activeNav} onNavigate={handleNavigation} onGoProfile={() => { setActiveNav("profile"); navigate("profile"); }} activeReservation={activeReservation} favorites={favorites} onToggleFavorite={toggleFavorite} />}
       {screen === "detail" && <DetailScreen albergue={selectedAlbergue} onBack={() => navigate("map")} onBookRoom={handleBookRoom} isFavorite={isFavorite(selectedAlbergue?.id)} onToggleFavorite={() => toggleFavorite(selectedAlbergue)} onChat={handleOpenChat} />}
       {screen === "chat" && <ChatScreen albergue={selectedAlbergue} token={token} authUser={authUser} onBack={() => navigate(chatBackTarget)} activeNav={activeNav} onNavigate={handleNavigation} />}
       {screen === "chats" && <ChatsListScreen chatAlbergues={chatAlbergues} onOpenChat={handleOpenChatFromList} activeNav={activeNav} onNavigate={handleNavigation} />}
