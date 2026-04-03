@@ -1973,7 +1973,8 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
   useEffect(() => {
     if (!token) return;
     api.get("/favorites", token).then(data => {
-      setFavorites((data.favorites || []).map(formatAlbergue));
+      const favs = (data.favorites || []).map(formatAlbergue).filter(a => a.name?.toLowerCase().includes("palermo"));
+      setFavorites(favs);
     }).catch(() => { });
   }, [token]);
 
@@ -2006,7 +2007,8 @@ function RushUserApp({ onLogout, startScreen = "splash" }) {
         status: r.status || "completada",
         created_at: r.created_at,
       }));
-      setReservations([...fromApi, DEMO_RESERVATION]);
+      const filtered = fromApi.filter(r => r.albergue?.toLowerCase().includes("palermo"));
+      setReservations(filtered);
     }).catch(() => { });
   }, [token]);
 
@@ -3035,7 +3037,7 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
 // ─── DASHBOARD ───
 const DashboardView = ({ rooms, setRooms }) => {
   const occupied = rooms.filter(r => r.status === "ocupada" || r.status === "reservada").length;
-  const occupancyPct = Math.round((occupied / rooms.length) * 100);
+  const occupancyPct = rooms.length > 0 ? Math.round((occupied / rooms.length) * 100) : 0;
   const [liveUserRes, setLiveUserRes] = useState(() => JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
   useEffect(() => {
     const interval = setInterval(() => setLiveUserRes(JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]")), 2000);
@@ -3490,11 +3492,7 @@ const MetricsView = () => {
         price: r.price_1h,
         occupancy: r.status === "ocupada" || r.status === "reservada" ? 100 : r.status === "libre" ? 0 : 50,
       }))
-    : [
-        { name: "Suite Premium", revenue: 385000, reservations: 22, occupancy: 88 },
-        { name: "Clásica", revenue: 312000, reservations: 18, occupancy: 72 },
-        { name: "VIP", revenue: 145000, reservations: 7, occupancy: 52 },
-      ];
+    : [];
 
   const fmtMoney = (n) => n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
 
@@ -3529,10 +3527,10 @@ const MetricsView = () => {
           </>
         ) : (
           <>
-            <MetricCard label="Ingresos" value="$842k" trend="up" trendValue="+18%" color={CA.purple} />
-            <MetricCard label="Reservas" value="47" trend="up" trendValue="+12%" />
-            <MetricCard label="Ocupación prom." value="74%" trend="up" trendValue="+5%" color={CA.green} />
-            <MetricCard label="Ticket promedio" value="$17.9k" trend="down" trendValue="-3%" />
+            <MetricCard label="Ingresos" value="$0" trend="up" trendValue="" color={CA.purple} />
+            <MetricCard label="Reservas" value="0" trend="up" trendValue="" />
+            <MetricCard label="Ocupación prom." value="0%" trend="up" trendValue="" color={CA.green} />
+            <MetricCard label="Ticket promedio" value="$0" trend="up" trendValue="" />
           </>
         )}
       </div>
