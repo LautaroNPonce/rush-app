@@ -70,11 +70,20 @@ const formatAlbergue = (a) => {
     price_2h: r.price_2h,
     price_night: r.price_night,
     amenities: (r.room_amenities || []).map(am => am.amenity).join(" · "),
-    available: r.quantity || 1,
+    // Availability based on real room status from DB
+    available: r.status === "libre" ? (r.quantity || 1) : 0,
     popular: (r.room_amenities || []).length >= 3,
     status: r.status,
+    // First room photo from DB (sorted by sort_order)
+    photo: [...(r.room_photos || [])].sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0))[0]?.url || null,
   }));
   const rooms = apiRooms.length > 0 ? apiRooms : DEMO_ROOMS_FALLBACK.map(r => ({ ...r, id: `${a.id}-${r.id}` }));
+
+  // Map real photos from DB
+  const sortedPhotos = [...(a.photos || [])].sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
+  const coverPhoto = sortedPhotos[0]?.url || null;
+  const allPhotos = sortedPhotos.map(p => p.url);
+
   return {
     id: a.id,
     name: a.name,
@@ -87,6 +96,8 @@ const formatAlbergue = (a) => {
     lat: a.lat,
     lng: a.lng,
     rooms,
+    coverPhoto,   // first general albergue photo URL
+    photos: allPhotos,  // all general photo URLs
   };
 };
 
@@ -406,7 +417,7 @@ const AlbergueCard = ({ albergue, onClick, isFavorite, onToggleFavorite, compact
         onClick={onClick}
         onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(83,74,183,0.14)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
         onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.06)"; e.currentTarget.style.transform = "none"; }}>
-        <div style={{ width: 90, height: 90, background: CARD_GRADIENTS[gradIdx], flexShrink: 0, position: "relative" }}>
+        <div style={{ width: 90, height: 90, background: albergue.coverPhoto ? `url(${albergue.coverPhoto}) center/cover no-repeat` : CARD_GRADIENTS[gradIdx], flexShrink: 0, position: "relative" }}>
           {onToggleFavorite && (
             <div style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.28)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
               onClick={e => { e.stopPropagation(); onToggleFavorite(albergue); }}>
@@ -443,7 +454,7 @@ const AlbergueCard = ({ albergue, onClick, isFavorite, onToggleFavorite, compact
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(83,74,183,0.18)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.08)"; }}>
       {/* Photo / gradient area */}
-      <div style={{ height: 200, background: CARD_GRADIENTS[gradIdx], position: "relative" }}>
+      <div style={{ height: 200, background: albergue.coverPhoto ? `url(${albergue.coverPhoto}) center/cover no-repeat` : CARD_GRADIENTS[gradIdx], position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, transparent 45%, rgba(0,0,0,0.18) 100%)" }} />
         {/* Heart */}
         {onToggleFavorite && (
@@ -488,7 +499,7 @@ const RoomCard = ({ room, onBook }) => (
       </div>
     )}
     <div style={{ display: "flex", gap: 12 }}>
-      <div style={{ width: 64, height: 64, borderRadius: 10, background: COLORS.bg, flexShrink: 0 }} />
+      <div style={{ width: 64, height: 64, borderRadius: 10, background: room.photo ? `url(${room.photo}) center/cover no-repeat` : COLORS.bg, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
           <p style={{ fontSize: 14, fontWeight: 600 }}>{room.name}</p>
@@ -1202,20 +1213,29 @@ const MapScreen = ({ onSelectAlbergue, activeNav, onNavigate, albergues = [], on
 const DetailScreen = ({ albergue, onBack, onBookRoom, isFavorite, onToggleFavorite, onChat }) => (
   <div style={{ ...S.phone, minHeight: "100dvh", background: COLORS.card, paddingBottom: 20, ...S.fadeIn }}>
     {/* Hero */}
-    <div style={{ height: 220, background: `linear-gradient(135deg, ${COLORS.purpleDark} 0%, ${COLORS.purple} 50%, ${COLORS.purpleMid} 100%)`, position: "relative" }}>
+    <div style={{
+      height: 220,
+      background: albergue.coverPhoto
+        ? `url(${albergue.coverPhoto}) center/cover no-repeat`
+        : `linear-gradient(135deg, ${COLORS.purpleDark} 0%, ${COLORS.purple} 50%, ${COLORS.purpleMid} 100%)`,
+      position: "relative"
+    }}>
+      {/* Overlay for readability */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 40%, rgba(0,0,0,0.35) 100%)" }} />
       <StatusBar light />
-      <div style={{ position: "absolute", top: 48, left: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }} onClick={onBack}>
+      <div style={{ position: "absolute", top: 48, left: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)", zIndex: 1 }} onClick={onBack}>
         {Icons.back("#fff")}
       </div>
-      <div style={{ position: "absolute", top: 48, right: 60, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }} onClick={onChat}>
+      <div style={{ position: "absolute", top: 48, right: 60, width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)", zIndex: 1 }} onClick={onChat}>
         {Icons.chat("#fff", 18)}
       </div>
-      <div style={{ position: "absolute", top: 48, right: 16, width: 36, height: 36, borderRadius: "50%", background: isFavorite ? "rgba(229,57,53,0.85)" : "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }} onClick={onToggleFavorite}>
+      <div style={{ position: "absolute", top: 48, right: 16, width: 36, height: 36, borderRadius: "50%", background: isFavorite ? "rgba(229,57,53,0.85)" : "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s", zIndex: 1 }} onClick={onToggleFavorite}>
         {HeartIcon("#fff", 18, isFavorite)}
       </div>
-      <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
-        {[1, 0.4, 0.4, 0.4].map((op, i) => (
-          <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: `rgba(255,255,255,${op})` }} />
+      {/* Photo count dots */}
+      <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, zIndex: 1 }}>
+        {(albergue.photos?.length > 1 ? albergue.photos : [1, 2, 3, 4]).slice(0, 4).map((_, i) => (
+          <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: `rgba(255,255,255,${i === 0 ? 1 : 0.4})` }} />
         ))}
       </div>
     </div>
@@ -3940,12 +3960,58 @@ const MetricsView = ({ albergueId, token, metrics: propMetrics }) => {
 };
 
 // ─── SETTINGS ───
-const SettingsView = ({ onLogout }) => {
+const SettingsView = ({ onLogout, albergueId, token }) => {
   const [profile, setProfile] = useState({ name: "Martín Gómez", email: "martin@suitepalermo.com", phone: "+54 11 5555-4321" });
   const [albergue, setAlbergue] = useState({ name: "Suite Palermo", address: "Av. Santa Fe 4200", zone: "Palermo, CABA", hours: "24 horas" });
   const [editingSection, setEditingSection] = useState(null);
   const [notifications, setNotifications] = useState({ reservas: true, reviews: true, promos: false });
   const [saved, setSaved] = useState(null);
+
+  // Photos state
+  const [alberguePhotos, setAlberguePhotos] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!albergueId) return;
+    api.get(`/photos/albergue/${albergueId}`).then(data => {
+      setAlberguePhotos(data.photos || []);
+    }).catch(() => {});
+  }, [albergueId]);
+
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 6 - alberguePhotos.length);
+    e.target.value = "";
+    if (!files.length || !albergueId || !token) return;
+    setUploadingPhoto(true);
+    for (const file of files) {
+      const reader = new FileReader();
+      await new Promise(resolve => {
+        reader.onload = async (ev) => {
+          try {
+            const data = await api.post("/photos/upload", {
+              base64: ev.target.result,
+              fileName: file.name,
+              albergue_id: albergueId,
+              type: "albergue",
+            }, token);
+            if (data.photo) setAlberguePhotos(prev => [...prev, data.photo]);
+          } catch { /* silently fail */ }
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    setUploadingPhoto(false);
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    if (!token) return;
+    try {
+      await api.del(`/photos/${photoId}`, token);
+      setAlberguePhotos(prev => prev.filter(p => p.id !== photoId));
+    } catch { /* silently fail */ }
+  };
 
   const handleSave = (section) => {
     setEditingSection(null);
@@ -4110,6 +4176,46 @@ const SettingsView = ({ onLogout }) => {
             <p>{"Pod\u00e9s solicitar la eliminaci\u00f3n de tu cuenta y datos contactando a soporte@rush.app"}</p>
           </div>
         </div>
+      </div>
+
+      {/* Fotos del albergue */}
+      <div style={{ background: CA.card, borderRadius: 16, border: `1px solid ${CA.border}`, padding: "18px 22px", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, margin: 0, fontFamily: FONT_ADMIN }}>Fotos del albergue</p>
+          {alberguePhotos.length < 6 && (
+            <button onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}
+              style={{ padding: "6px 14px", borderRadius: 10, background: CA.purple, color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: uploadingPhoto ? 0.7 : 1 }}>
+              {uploadingPhoto ? "Subiendo..." : "+ Agregar"}
+            </button>
+          )}
+        </div>
+        <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoUpload} />
+        {alberguePhotos.length === 0 ? (
+          <div onClick={() => photoInputRef.current?.click()}
+            style={{ height: 100, border: `2px dashed ${CA.border}`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", color: CA.textSec }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={CA.textSec} strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+            <p style={{ fontSize: 13, margin: 0 }}>Subí fotos de tu albergue</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {alberguePhotos.map(p => (
+              <div key={p.id} style={{ position: "relative", aspectRatio: "1", borderRadius: 10, overflow: "hidden" }}>
+                <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div onClick={() => handleDeletePhoto(p.id)}
+                  style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(226,75,74,0.9)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </div>
+              </div>
+            ))}
+            {alberguePhotos.length < 6 && (
+              <div onClick={() => photoInputRef.current?.click()}
+                style={{ aspectRatio: "1", borderRadius: 10, border: `2px dashed ${CA.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: CA.textSec }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={CA.textSec} strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </div>
+            )}
+          </div>
+        )}
+        <p style={{ fontSize: 11, color: CA.textSec, margin: "10px 0 0" }}>Máx. 6 fotos · Se muestran a los usuarios al explorar la app</p>
       </div>
 
       {/* Plan info */}
@@ -4295,7 +4401,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
       case "messages": return <MessagesView />;
       case "pricing": return <PricingView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} />;
       case "metrics": return <MetricsView albergueId={albergueId} token={token} metrics={adminMetrics} />;
-      case "settings": return <SettingsView onLogout={onLogout} />;
+      case "settings": return <SettingsView onLogout={onLogout} albergueId={albergueId} token={token} />;
       default: return <DashboardView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} metrics={adminMetrics} />;
     }
   };
