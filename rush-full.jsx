@@ -4874,9 +4874,11 @@ const RequestsView = ({ requests, setRequests, token }) => {
 };
 
 // ── ALBERGUES VIEW ──
-const AlberguesView = ({ albergues }) => {
+const AlberguesView = ({ albergues, setSaAlbergues, token }) => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [loadingId, setLoadingId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const filtered = albergues.filter(a => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.zone.toLowerCase().includes(search.toLowerCase());
@@ -4884,8 +4886,54 @@ const AlberguesView = ({ albergues }) => {
     return matchSearch && matchStatus;
   });
 
+  const handleToggleStatus = async (a) => {
+    const newStatus = a.status === "active" ? "suspended" : "active";
+    setLoadingId(a.id);
+    try {
+      await api.patch(`/superadmin/albergues/${a.id}/status`, { status: newStatus }, token);
+      setSaAlbergues(prev => prev.map(x => x.id === a.id ? { ...x, status: newStatus } : x));
+    } catch (e) {
+      alert(e.message || "Error al cambiar estado");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    setLoadingId(id);
+    setConfirmDelete(null);
+    try {
+      await api.del(`/superadmin/albergues/${id}`, token);
+      setSaAlbergues(prev => prev.filter(x => x.id !== id));
+    } catch (e) {
+      alert(e.message || "Error al eliminar albergue");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <div style={{ animation: "saFadeUp 0.4s ease" }}>
+      {/* Confirm delete modal */}
+      {confirmDelete && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: CSA.card, borderRadius: 16, padding: "28px 32px", maxWidth: 380, width: "90%", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px", fontFamily: FONT_SA }}>¿Eliminar albergue?</p>
+            <p style={{ fontSize: 13, color: CSA.textSec, margin: "0 0 24px" }}>Esta acción es irreversible. Solo podés eliminar albergues sin reservas activas.</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmDelete(null)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: CSA.bg, border: `1px solid ${CSA.border}`, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={() => handleDelete(confirmDelete)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: CSA.red, border: "none", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ position: "relative", flex: "1 1 250px" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar albergue o zona..."
@@ -4909,7 +4957,7 @@ const AlberguesView = ({ albergues }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${CSA.border}` }}>
-                {["Albergue", "Zona", "Hab.", "Plan", "Estado", "Reservas", "Comisión", "Rating", "Desde"].map(h => (
+                {["Albergue", "Zona", "Hab.", "Plan", "Estado", "Rating", "Desde", "Acciones"].map(h => (
                   <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: CSA.textSec, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -4923,13 +4971,28 @@ const AlberguesView = ({ albergues }) => {
                   <td style={{ padding: "12px 16px", color: CSA.textSec }}>{a.zone}</td>
                   <td style={{ padding: "12px 16px" }}>{a.rooms}</td>
                   <td style={{ padding: "12px 16px" }}><SABadge type={a.plan}>{a.plan === "premium" ? "Premium" : "Básico"}</SABadge></td>
-                  <td style={{ padding: "12px 16px" }}><SABadge type={a.status}>{a.status === "active" ? "Activo" : "Suspendido"}</SABadge></td>
-                  <td style={{ padding: "12px 16px" }}>{a.reservations}</td>
-                  <td style={{ padding: "12px 16px", fontWeight: 600, color: CSA.purple }}>${Math.round(a.commission / 1000)}k</td>
+                  <td style={{ padding: "12px 16px" }}><SABadge type={a.status}>{a.status === "active" ? "Activo" : a.status === "pending" ? "Pendiente" : "Suspendido"}</SABadge></td>
                   <td style={{ padding: "12px 16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>{Ic.star()} {a.rating}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>{Ic.star()} {a.rating || "—"}</div>
                   </td>
                   <td style={{ padding: "12px 16px", color: CSA.textSec }}>{a.since}</td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => handleToggleStatus(a)} disabled={loadingId === a.id}
+                        style={{
+                          padding: "5px 12px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                          background: a.status === "active" ? CSA.amberLight : CSA.greenLight,
+                          color: a.status === "active" ? CSA.amberDark : CSA.greenDark,
+                          opacity: loadingId === a.id ? 0.6 : 1,
+                        }}>
+                        {loadingId === a.id ? "..." : a.status === "active" ? "Suspender" : "Activar"}
+                      </button>
+                      <button onClick={() => setConfirmDelete(a.id)} disabled={loadingId === a.id}
+                        style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${CSA.red}`, background: "transparent", color: CSA.red, fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: loadingId === a.id ? 0.6 : 1 }}>
+                        ✕
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -5173,7 +5236,7 @@ function RushSuperAdminApp({ onLogout }) {
     switch (page) {
       case "dashboard": return <SADashboardView requests={requests} albergues={saAlbergues} apiMetrics={saMetrics} apiRevenue={saRevenue} />;
       case "requests": return <RequestsView requests={requests} setRequests={setRequests} token={token} />;
-      case "albergues": return <AlberguesView albergues={saAlbergues} />;
+      case "albergues": return <AlberguesView albergues={saAlbergues} setSaAlbergues={setSaAlbergues} token={token} />;
       case "finances": return <FinancesView albergues={saAlbergues} apiRevenue={saRevenue} />;
       case "metrics": return <SAMetricsView albergues={saAlbergues} requests={requests} />;
       default: return <SADashboardView requests={requests} albergues={saAlbergues} apiMetrics={saMetrics} apiRevenue={saRevenue} />;
