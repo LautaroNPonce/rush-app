@@ -2569,11 +2569,13 @@ const I = {
   trash: (c = CA.red) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>,
   chat: (c = CA.textSec) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
   send: (c = "#fff") => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>,
+  bed: (c = CA.textSec) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8" /><path d="M2 12V8a2 2 0 0 1 2-2h4" /><path d="M18 6h-4a2 2 0 0 0-2 2v4" /><line x1="2" y1="16" x2="22" y2="16" /></svg>,
 };
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Inicio", icon: I.dashboard },
   { key: "reservations", label: "Reservas", icon: I.calendar },
+  { key: "rooms", label: "Habitaciones", icon: I.bed },
   { key: "messages", label: "Mensajes", icon: I.chat },
   { key: "pricing", label: "Precios", icon: I.dollar },
   { key: "metrics", label: "Métricas", icon: I.chart },
@@ -3811,6 +3813,356 @@ const MessagesView = () => {
   );
 };
 
+// ─── HABITACIONES ───
+const HabitacionesView = ({ rooms, setRooms, albergueId, token }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editRoom, setEditRoom] = useState(null); // null = new, object = editing
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [statusLoading, setStatusLoading] = useState({});
+  const [photoUploading, setPhotoUploading] = useState({});
+  const [formData, setFormData] = useState({ name: "", quantity: "1", price_1h: "", price_2h: "", price_night: "", amenities: [] });
+  const [roomPhotos, setRoomPhotos] = useState({}); // { roomId: [{ id, url }] }
+  const [error, setError] = useState(null);
+
+  // Load photos for all rooms
+  React.useEffect(() => {
+    if (!rooms || rooms.length === 0) return;
+    const loadPhotos = async () => {
+      const map = {};
+      await Promise.all(rooms.map(async (r) => {
+        try {
+          const data = await api.get(`/photos/albergue/${albergueId}`, token);
+          map[r.id] = (data.photos || []).filter(p => p.room_id === r.id);
+        } catch {}
+      }));
+      setRoomPhotos(map);
+    };
+    loadPhotos();
+  }, [rooms?.length, albergueId]);
+
+  const openCreate = () => {
+    setFormData({ name: "", quantity: "1", price_1h: "", price_2h: "", price_night: "", amenities: [] });
+    setEditRoom(null);
+    setShowForm(true);
+    setError(null);
+  };
+
+  const openEdit = (room) => {
+    setFormData({
+      name: room.name,
+      quantity: String(room.quantity || 1),
+      price_1h: String(room.price1h || room.price_1h || ""),
+      price_2h: String(room.price2h || room.price_2h || ""),
+      price_night: String(room.priceNight || room.price_night || ""),
+      amenities: Array.isArray(room.amenities) ? room.amenities : (room.amenities ? room.amenities.split(" · ") : []),
+    });
+    setEditRoom(room);
+    setShowForm(true);
+    setError(null);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name.trim() || !formData.price_1h) {
+      setError("Nombre y precio por hora son requeridos");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const body = {
+        name: formData.name.trim(),
+        quantity: parseInt(formData.quantity) || 1,
+        price_1h: parseInt(formData.price_1h) || 0,
+        price_2h: parseInt(formData.price_2h) || 0,
+        price_night: parseInt(formData.price_night) || 0,
+        amenities: formData.amenities,
+      };
+      if (editRoom) {
+        const data = await api.patch(`/albergues/${albergueId}/rooms/${editRoom.id}`, body, token);
+        setRooms(prev => prev.map(r => r.id === editRoom.id ? normalizeRoom({ ...r, ...data.room }) : r));
+      } else {
+        const data = await api.post(`/albergues/${albergueId}/rooms`, body, token);
+        setRooms(prev => [...prev, normalizeRoom(data.room)]);
+      }
+      setShowForm(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.del(`/albergues/${albergueId}/rooms/${deleteTarget.id}`, token);
+      setRooms(prev => prev.filter(r => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (room, newStatus) => {
+    setStatusLoading(prev => ({ ...prev, [room.id]: true }));
+    const prev = room.status;
+    setRooms(prevRooms => prevRooms.map(r => r.id === room.id ? { ...r, status: newStatus } : r));
+    try {
+      await api.patch(`/albergues/${albergueId}/rooms/${room.id}`, { status: newStatus }, token);
+    } catch {
+      setRooms(prevRooms => prevRooms.map(r => r.id === room.id ? { ...r, status: prev } : r));
+    } finally {
+      setStatusLoading(prev => ({ ...prev, [room.id]: false }));
+    }
+  };
+
+  const handlePhotoUpload = async (room, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(prev => ({ ...prev, [room.id]: true }));
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const base64 = ev.target.result;
+          const data = await api.post("/photos/upload", {
+            base64,
+            fileName: file.name,
+            albergue_id: albergueId,
+            room_id: room.id,
+            type: "room",
+          }, token);
+          setRoomPhotos(prev => ({
+            ...prev,
+            [room.id]: [...(prev[room.id] || []), data.photo],
+          }));
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setPhotoUploading(prev => ({ ...prev, [room.id]: false }));
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setPhotoUploading(prev => ({ ...prev, [room.id]: false }));
+    }
+  };
+
+  const handlePhotoDelete = async (roomId, photo) => {
+    try {
+      await api.del(`/photos/room/${photo.id}`, token);
+      setRoomPhotos(prev => ({ ...prev, [roomId]: (prev[roomId] || []).filter(p => p.id !== photo.id) }));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const toggleAmenity = (a) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(a) ? prev.amenities.filter(x => x !== a) : [...prev.amenities, a],
+    }));
+  };
+
+  const statusOptions = [
+    { value: "libre", label: "Libre", color: CA.green },
+    { value: "ocupada", label: "Ocupada", color: CA.amber },
+    { value: "mantenimiento", label: "Mantenimiento", color: CA.red },
+  ];
+
+  return (
+    <div style={{ padding: "0 0 40px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <p style={{ fontSize: 13, color: CA.textSec, margin: 0 }}>{rooms.length} habitación{rooms.length !== 1 ? "es" : ""} registrada{rooms.length !== 1 ? "s" : ""}</p>
+        </div>
+        <button onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: CA.purple, color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          {I.plus("#fff")}
+          Nueva habitación
+        </button>
+      </div>
+
+      {/* Room list */}
+      {rooms.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: CA.textSec }}>
+          <div style={{ marginBottom: 12, opacity: 0.3 }}>{I.bed(CA.textSec)}</div>
+          <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sin habitaciones</p>
+          <p style={{ fontSize: 13 }}>Creá tu primera habitación para empezar a recibir reservas.</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 16 }}>
+          {rooms.map(room => {
+            const photos = roomPhotos[room.id] || [];
+            const firstPhoto = photos[0]?.url || null;
+            return (
+              <div key={room.id} style={{ background: CA.card, border: `1px solid ${CA.border}`, borderRadius: 16, overflow: "hidden" }}>
+                <div style={{ display: "flex", gap: 0 }}>
+                  {/* Photo thumbnail */}
+                  <div style={{ width: 120, minHeight: 120, flexShrink: 0, background: firstPhoto ? `url(${firstPhoto}) center/cover no-repeat` : `linear-gradient(135deg, ${CA.purpleDark}, ${CA.purpleMid})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {!firstPhoto && I.bed("#ffffff80")}
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, padding: "14px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                      <div>
+                        <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px", fontFamily: FONT_ADMIN }}>{room.name}</p>
+                        <p style={{ fontSize: 12, color: CA.textSec, margin: 0 }}>{room.quantity} habitación{room.quantity !== 1 ? "es" : ""}</p>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => openEdit(room)} style={{ padding: "6px 10px", background: CA.purpleLight, border: "none", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center" }}>
+                          {I.edit(CA.purple)}
+                        </button>
+                        <button onClick={() => setDeleteTarget(room)} style={{ padding: "6px 10px", background: CA.redLight, border: "none", borderRadius: 8, cursor: "pointer", display: "flex", alignItems: "center" }}>
+                          {I.trash(CA.red)}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Prices */}
+                    <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: CA.textSec }}><b style={{ color: CA.text }}>1h:</b> ${(room.price1h || 0).toLocaleString("es-AR")}</span>
+                      {(room.price2h || room.price_2h) > 0 && <span style={{ fontSize: 12, color: CA.textSec }}><b style={{ color: CA.text }}>2h:</b> ${((room.price2h || room.price_2h) || 0).toLocaleString("es-AR")}</span>}
+                      {(room.priceNight || room.price_night) > 0 && <span style={{ fontSize: 12, color: CA.textSec }}><b style={{ color: CA.text }}>Noche:</b> ${((room.priceNight || room.price_night) || 0).toLocaleString("es-AR")}</span>}
+                    </div>
+
+                    {/* Amenities */}
+                    {room.amenities && (
+                      <p style={{ fontSize: 11, color: CA.textTer, margin: "0 0 8px" }}>
+                        {Array.isArray(room.amenities) ? room.amenities.join(" · ") : room.amenities}
+                      </p>
+                    )}
+
+                    {/* Status selector */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 12, color: CA.textSec }}>Estado:</span>
+                      <select
+                        value={room.status}
+                        disabled={!!statusLoading[room.id]}
+                        onChange={e => handleStatusChange(room, e.target.value)}
+                        style={{ fontSize: 12, padding: "4px 8px", borderRadius: 8, border: `1px solid ${CA.border}`, background: CA.card, color: CA.text, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+                      >
+                        {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      {statusLoading[room.id] && <span style={{ fontSize: 11, color: CA.textTer }}>Guardando…</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Photos row */}
+                <div style={{ borderTop: `1px solid ${CA.border}`, padding: "12px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, color: CA.textSec, marginRight: 4 }}>Fotos:</span>
+                    {photos.map(photo => (
+                      <div key={photo.id} style={{ position: "relative", width: 52, height: 52 }}>
+                        <img src={photo.url} alt="" style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", display: "block" }} />
+                        <button onClick={() => handlePhotoDelete(room.id, photo)}
+                          style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: CA.red, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                    <label style={{ width: 52, height: 52, borderRadius: 8, border: `1.5px dashed ${CA.borderSec}`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2 }}>
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => handlePhotoUpload(room, e)} />
+                      {photoUploading[room.id] ? <span style={{ fontSize: 10, color: CA.textTer }}>…</span> : <>{I.plus(CA.textTer)}<span style={{ fontSize: 9, color: CA.textTer }}>Subir</span></>}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: CA.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 480, maxHeight: "90dvh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <p style={{ fontSize: 17, fontWeight: 700, margin: 0, fontFamily: FONT_ADMIN }}>{editRoom ? "Editar habitación" : "Nueva habitación"}</p>
+              <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: CA.textSec, lineHeight: 1 }}>×</button>
+            </div>
+
+            {error && <p style={{ fontSize: 13, color: CA.red, background: CA.redLight, padding: "10px 14px", borderRadius: 10, marginBottom: 16 }}>{error}</p>}
+
+            <FormInput label="Nombre de la habitación" placeholder="Ej: Suite Premium" value={formData.name} onChange={v => setFormData(p => ({ ...p, name: v }))} />
+
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 6 }}>Cantidad</label>
+                <input type="number" min="1" value={formData.quantity} onChange={e => setFormData(p => ({ ...p, quantity: e.target.value }))}
+                  style={{ width: "100%", padding: "12px 16px", border: `1.5px solid ${CA.border}`, borderRadius: 12, fontSize: 15, fontFamily: "'DM Sans', sans-serif", background: CA.card, color: CA.text, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+              {[["price_1h", "Precio 1h"], ["price_2h", "Precio 2h"], ["price_night", "Noche"]].map(([key, label]) => (
+                <div key={key}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 6 }}>{label}</label>
+                  <div style={{ position: "relative" }}>
+                    <input value={formData[key]} onChange={e => setFormData(p => ({ ...p, [key]: e.target.value.replace(/\D/g, "") }))} placeholder="0"
+                      style={{ width: "100%", padding: "10px 12px", paddingLeft: 22, border: `1.5px solid ${CA.border}`, borderRadius: 10, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: CA.card, color: CA.text, outline: "none", boxSizing: "border-box" }} />
+                    <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: CA.textSec }}>$</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 13, fontWeight: 600, color: CA.textSec, display: "block", marginBottom: 8 }}>Amenidades</label>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 22 }}>
+              {AMENITIES_LIST.map(a => (
+                <span key={a} onClick={() => toggleAmenity(a)}
+                  style={{ fontSize: 12, padding: "6px 12px", borderRadius: 10, cursor: "pointer", fontWeight: 500, transition: "all 0.15s", background: formData.amenities.includes(a) ? CA.purple : CA.card, color: formData.amenities.includes(a) ? "#fff" : CA.textSec, border: formData.amenities.includes(a) ? "none" : `1px solid ${CA.border}` }}>
+                  {a}
+                </span>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: CA.bg, border: `1px solid ${CA.border}`, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: CA.textSec }}>
+                Cancelar
+              </button>
+              <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "13px", background: saving ? CA.purpleMid : CA.purple, border: "none", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: saving ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", color: "#fff" }}>
+                {saving ? "Guardando…" : (editRoom ? "Guardar cambios" : "Crear habitación")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: CA.card, borderRadius: 20, padding: 24, width: "100%", maxWidth: 360, textAlign: "center" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: CA.redLight, margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {I.trash(CA.red)}
+            </div>
+            <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px", fontFamily: FONT_ADMIN }}>¿Eliminar habitación?</p>
+            <p style={{ fontSize: 13, color: CA.textSec, margin: "0 0 22px" }}>
+              Se eliminará <b>{deleteTarget.name}</b> y todas sus fotos. Esta acción no se puede deshacer.
+            </p>
+            {error && <p style={{ fontSize: 12, color: CA.red, marginBottom: 12 }}>{error}</p>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setDeleteTarget(null); setError(null); }} style={{ flex: 1, padding: "12px", background: CA.bg, border: `1px solid ${CA.border}`, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: CA.textSec }}>
+                Cancelar
+              </button>
+              <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: "12px", background: deleting ? "#e88" : CA.red, border: "none", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: deleting ? "default" : "pointer", fontFamily: "'DM Sans', sans-serif", color: "#fff" }}>
+                {deleting ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── METRICS ───
 const MetricsView = ({ albergueId, token, metrics: propMetrics }) => {
   const [period, setPeriod] = useState("week");
@@ -4398,6 +4750,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     switch (page) {
       case "dashboard": return <DashboardView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} metrics={adminMetrics} />;
       case "reservations": return <ReservationsView albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} />;
+      case "rooms": return <HabitacionesView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} />;
       case "messages": return <MessagesView />;
       case "pricing": return <PricingView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} />;
       case "metrics": return <MetricsView albergueId={albergueId} token={token} metrics={adminMetrics} />;
@@ -4406,7 +4759,7 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     }
   };
 
-  const pageTitle = { dashboard: "Inicio", reservations: "Reservas", messages: "Mensajes", pricing: "Precios", metrics: "Métricas", settings: "Ajustes" }[page];
+  const pageTitle = { dashboard: "Inicio", reservations: "Reservas", rooms: "Habitaciones", messages: "Mensajes", pricing: "Precios", metrics: "Métricas", settings: "Ajustes" }[page];
 
   return (
     <>
