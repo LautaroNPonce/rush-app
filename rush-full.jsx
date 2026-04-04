@@ -48,6 +48,13 @@ const api = {
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Error del servidor"); }
     return res.json();
   },
+  patch: async (path, body, token) => {
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}${path}`, { method: "PATCH", headers, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Error del servidor"); }
+    return res.json();
+  },
 };
 
 // Adaptar formato de la API al formato que esperan los componentes
@@ -2447,6 +2454,66 @@ const ROOMS_DATA = [];
 
 const RESERVATIONS_DATA = [];
 
+// Normalizar room de API al formato que usan los componentes admin
+const normalizeRoom = (r) => ({
+  id: r.id,
+  name: r.name,
+  type: r.type || r.name,
+  quantity: r.quantity || 1,
+  status: r.status || "libre",
+  price1h: r.price_1h || r.price1h || 0,
+  price2h: r.price_2h || r.price2h || 0,
+  priceNight: r.price_night || r.priceNight || 0,
+  peakEnabled: r.peak_enabled !== undefined ? r.peak_enabled : (r.peakEnabled || false),
+  peakPct: r.peak_pct !== undefined ? r.peak_pct : (r.peakPct || 20),
+  // Mantener nombres originales API también
+  price_1h: r.price_1h || r.price1h || 0,
+  price_2h: r.price_2h || r.price2h || 0,
+  price_night: r.price_night || r.priceNight || 0,
+});
+
+// Normalizar reserva de API al formato que usan los componentes admin
+const normalizeReservation = (r) => ({
+  id: r.id,
+  room: r.rooms?.name || r.room || "Habitación",
+  checkIn: r.check_in ? new Date(r.check_in).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : (r.checkIn || "—"),
+  duration: r.hours ? `${r.hours}h` : (r.duration || "—"),
+  code: r.code,
+  amount: r.total || r.amount || 0,
+  status: r.status,
+  payMethod: r.pay_method === "cash" ? "Efectivo" : (r.pay_method === "digital" ? "Digital" : (r.payMethod || "—")),
+  room_id: r.room_id,
+  albergue_id: r.albergue_id,
+  user_id: r.user_id,
+  created_at: r.created_at,
+});
+
+const normalizeVerificationRequest = (r) => ({
+  id: r.id,
+  name: r.albergues?.name || "—",
+  owner: r.owners?.name || "—",
+  email: r.owners?.email || "—",
+  zone: r.albergues?.zone || "—",
+  rooms: 0,
+  date: r.created_at ? new Date(r.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+  status: r.status,
+  code: r.code || null,
+  sentDate: r.code_sent_at ? new Date(r.code_sent_at).toLocaleDateString("es-AR") : null,
+});
+
+const normalizeSAAlbergue = (a) => ({
+  id: a.id,
+  name: a.name,
+  zone: a.zone || "—",
+  rooms: a.rooms?.length || 0,
+  plan: a.owners?.plan || "basic",
+  status: a.status,
+  since: a.created_at ? new Date(a.created_at).toLocaleDateString("es-AR", { month: "short", year: "numeric" }) : "—",
+  reservations: 0,
+  commission: 0,
+  rating: a.rating || 0,
+});
+
 const DAILY_REVENUE = [
   { day: "Lun", value: 0 }, { day: "Mar", value: 0 }, { day: "Mié", value: 0 },
   { day: "Jue", value: 0 }, { day: "Vie", value: 0 }, { day: "Sáb", value: 0 }, { day: "Dom", value: 0 },
@@ -3253,85 +3320,102 @@ const OnboardingStep4 = ({ data, onBack, onFinish }) => {
 };
 
 // ─── DASHBOARD ───
-const DashboardView = ({ rooms, setRooms }) => {
+const DashboardView = ({ rooms, setRooms, albergueId, token, reservations = [], metrics }) => {
   const occupied = rooms.filter(r => r.status === "ocupada" || r.status === "reservada").length;
-  const occupancyPct = rooms.length > 0 ? Math.round((occupied / rooms.length) * 100) : 0;
-  const [liveUserRes, setLiveUserRes] = useState(() => JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
-  useEffect(() => {
-    const interval = setInterval(() => setLiveUserRes(JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]")), 2000);
-    return () => clearInterval(interval);
-  }, []);
-  const allResAdmin = [...liveUserRes, ...RESERVATIONS_DATA];
-  const todayRevenue = allResAdmin.filter(r => r.status !== "completada").reduce((a, r) => a + r.amount, 0);
-  const activeRes = allResAdmin.filter(r => r.status === "en_curso" || r.status === "pendiente" || r.status === "por_vencer").length;
+  const occupancyPct = rooms.length > 0 ? Math.round((occupied / rooms.length) * 100) : (metrics?.occupancy ?? 0);
 
-  const toggleRoom = (id) => {
-    setRooms(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      const next = r.status === "libre" ? "ocupada" : r.status === "ocupada" ? "libre" : r.status;
-      return { ...r, status: next };
-    }));
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayRes = reservations.filter(r => r.created_at?.startsWith(todayStr));
+  const todayRevenue = metrics?.todayRevenue ?? todayRes.filter(r => r.status !== "cancelada").reduce((a, r) => a + (r.amount || 0), 0);
+  const activeRes = metrics?.activeReservations ?? reservations.filter(r => ["pendiente", "en_curso"].includes(r.status)).length;
+  const rating = metrics?.rating ?? 0;
+
+  const [toggling, setToggling] = useState(null);
+
+  const toggleRoom = async (room) => {
+    if (room.status === "reservada" || room.status === "mantenimiento") return;
+    const next = room.status === "libre" ? "ocupada" : "libre";
+    setRooms(prev => prev.map(r => r.id === room.id ? { ...r, status: next } : r));
+    if (albergueId && token) {
+      setToggling(room.id);
+      try {
+        await api.patch(`/albergues/${albergueId}/rooms/${room.id}/status`, { status: next }, token);
+      } catch {
+        setRooms(prev => prev.map(r => r.id === room.id ? { ...r, status: room.status } : r));
+      }
+      setToggling(null);
+    }
   };
+
+  const fmtMoney = (n) => n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n || 0}`;
 
   return (
     <div style={{ animation: "fadeUp 0.4s ease" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 28 }}>
-        <MetricCard label="Ocupación hoy" value={`${occupancyPct}%`} trend="up" trendValue="+5%" color={CA.green} />
-        <MetricCard label="Ingresos hoy" value={`$${Math.round(todayRevenue / 1000)}k`} trend="up" trendValue="+18%" color={CA.purple} />
-        <MetricCard label="Reservas activas" value={activeRes} />
-        <MetricCard label="Valoración" value="4.3" trend="up" trendValue="+0.2" color={CA.amber} />
+        <MetricCard label="Ocupación hoy" value={`${occupancyPct}%`} trend={occupancyPct >= 50 ? "up" : "down"} trendValue={rooms.length > 0 ? `${occupied}/${rooms.length} hab.` : ""} color={CA.green} />
+        <MetricCard label="Ingresos hoy" value={fmtMoney(todayRevenue)} trend="up" trendValue="" color={CA.purple} />
+        <MetricCard label="Reservas activas" value={String(activeRes)} />
+        <MetricCard label="Valoración" value={rating ? String(rating) : "—"} trend={rating >= 4 ? "up" : undefined} trendValue={metrics?.reviewCount ? `${metrics.reviewCount} reseñas` : ""} color={CA.amber} />
       </div>
 
       <SectionTitle>Habitaciones</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-        {rooms.map(r => (
-          <div key={r.id} style={{ background: CA.card, borderRadius: 14, border: `1px solid ${CA.border}`, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.15s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = CA.purpleMid}
-            onMouseLeave={e => e.currentTarget.style.borderColor = CA.border}>
-            <div>
-              <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{r.name}</p>
-              <p style={{ fontSize: 13, color: CA.textSec, margin: "2px 0 0" }}>${r.price1h.toLocaleString()}/h</p>
+      {rooms.length === 0 ? (
+        <p style={{ fontSize: 14, color: CA.textSec, padding: "20px 0" }}>No hay habitaciones registradas aún.</p>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+          {rooms.map(r => (
+            <div key={r.id} style={{ background: CA.card, borderRadius: 14, border: `1px solid ${CA.border}`, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.15s", opacity: toggling === r.id ? 0.6 : 1 }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = CA.purpleMid}
+              onMouseLeave={e => e.currentTarget.style.borderColor = CA.border}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{r.name}</p>
+                <p style={{ fontSize: 13, color: CA.textSec, margin: "2px 0 0" }}>${(r.price1h || 0).toLocaleString()}/h</p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Badge status={r.status} />
+                {(r.status === "libre" || r.status === "ocupada") && (
+                  <Toggle on={r.status === "libre"} onToggle={() => toggleRoom(r)} />
+                )}
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Badge status={r.status} />
-              {(r.status === "libre" || r.status === "ocupada") && (
-                <Toggle on={r.status === "libre"} onToggle={() => toggleRoom(r.id)} />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ marginTop: 24 }}>
         <SectionTitle>Últimas reservas</SectionTitle>
         <div style={{ background: CA.card, borderRadius: 14, border: `1px solid ${CA.border}`, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${CA.border}` }}>
-                  {["Habitación", "Check-in", "Código", "Monto", "Estado"].map(h => (
-                    <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: CA.textSec, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {RESERVATIONS_DATA.slice(0, 4).map(r => (
-                  <tr key={r.id} style={{ borderBottom: `1px solid ${CA.border}` }}>
-                    <td style={{ padding: "12px 16px", fontWeight: 500 }}>{r.room}</td>
-                    <td style={{ padding: "12px 16px", color: CA.textSec }}>{r.checkIn} · {r.duration}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {I.shield()}
-                        <span style={{ letterSpacing: 3, fontWeight: 600, fontFamily: "'DM Sans', monospace" }}>{r.code}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 16px", fontWeight: 600, color: CA.purple }}>${r.amount.toLocaleString()}</td>
-                    <td style={{ padding: "12px 16px" }}><Badge status={r.status} /></td>
+          {reservations.length === 0 ? (
+            <p style={{ fontSize: 14, color: CA.textSec, padding: "20px 24px" }}>No hay reservas registradas aún.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${CA.border}` }}>
+                    {["Habitación", "Check-in", "Código", "Monto", "Estado"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: CA.textSec, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {reservations.slice(0, 5).map(r => (
+                    <tr key={r.id} style={{ borderBottom: `1px solid ${CA.border}` }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 500 }}>{r.room}</td>
+                      <td style={{ padding: "12px 16px", color: CA.textSec }}>{r.checkIn} · {r.duration}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {I.shield()}
+                          <span style={{ letterSpacing: 3, fontWeight: 600, fontFamily: "'DM Sans', monospace" }}>{r.code}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: 600, color: CA.purple }}>${(r.amount || 0).toLocaleString()}</td>
+                      <td style={{ padding: "12px 16px" }}><Badge status={r.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -3339,34 +3423,55 @@ const DashboardView = ({ rooms, setRooms }) => {
 };
 
 // ─── RESERVATIONS ───
-const ReservationsView = () => {
+const ReservationsView = ({ albergueId, token, reservations = [], setReservations }) => {
   const [filter, setFilter] = useState("all");
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState(null);
-  const [userReservations, setUserReservations] = useState(() => JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setUserReservations(JSON.parse(localStorage.getItem("rush_admin_reservations") || "[]"));
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-  const allReservations = [...userReservations, ...RESERVATIONS_DATA];
+  const [verifying, setVerifying] = useState(false);
+  const [completing, setCompleting] = useState(null);
+
   const filters = [
     { key: "all", label: "Todas" },
     { key: "active", label: "Activas" },
     { key: "pending", label: "Pendientes" },
     { key: "done", label: "Historial" },
   ];
-  const filtered = allReservations.filter(r => {
+  const filtered = reservations.filter(r => {
     if (filter === "active") return r.status === "en_curso" || r.status === "por_vencer";
     if (filter === "pending") return r.status === "pendiente";
-    if (filter === "done") return r.status === "completada";
+    if (filter === "done") return r.status === "completada" || r.status === "cancelada";
     return true;
   });
 
-  const handleVerify = () => {
-    const found = allReservations.find(r => r.code === verifyCode);
-    setVerifyResult(found ? { success: true, room: found.room, duration: found.duration } : { success: false });
+  const handleVerify = async () => {
+    if (!verifyCode || verifyCode.length !== 4) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const data = await api.post("/reservations/verify-code", { code: verifyCode, albergue_id: albergueId }, token);
+      const res = data.reservation;
+      setVerifyResult({ success: true, room: res.room || res.roomName || "Habitación", duration: `${res.hours}h` });
+      // Update status in local list
+      setReservations(prev => prev.map(r => r.code === verifyCode ? { ...r, status: "en_curso" } : r));
+    } catch {
+      // Check local list as fallback
+      const found = reservations.find(r => r.code === verifyCode);
+      setVerifyResult(found ? { success: true, room: found.room, duration: found.duration } : { success: false });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleComplete = async (reservationId) => {
+    setCompleting(reservationId);
+    try {
+      await api.patch(`/reservations/${reservationId}/complete`, {}, token);
+      setReservations(prev => prev.map(r => r.id === reservationId ? { ...r, status: "completada" } : r));
+    } catch (e) {
+      alert(e.message || "Error al completar la reserva");
+    } finally {
+      setCompleting(null);
+    }
   };
 
   return (
@@ -3381,9 +3486,9 @@ const ReservationsView = () => {
           <input value={verifyCode} onChange={e => { setVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 4)); setVerifyResult(null); }}
             placeholder="0000" maxLength={4}
             style={{ width: 100, padding: "10px 14px", borderRadius: 12, border: `2px solid ${CA.purple}`, fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 6, fontFamily: FONT_ADMIN, outline: "none", background: CA.card }} />
-          <button onClick={handleVerify}
-            style={{ padding: "10px 20px", borderRadius: 12, background: CA.purple, color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: FONT_ADMIN }}>
-            Verificar
+          <button onClick={handleVerify} disabled={verifying}
+            style={{ padding: "10px 20px", borderRadius: 12, background: CA.purple, color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: FONT_ADMIN, opacity: verifying ? 0.7 : 1 }}>
+            {verifying ? "..." : "Verificar"}
           </button>
         </div>
         {verifyResult && (
@@ -3431,6 +3536,12 @@ const ReservationsView = () => {
                 <p style={{ fontSize: 11, color: CA.textSec, margin: "2px 0 0" }}>{r.payMethod}</p>
               </div>
             </div>
+            {r.status === "en_curso" && (
+              <button onClick={() => handleComplete(r.id)} disabled={completing === r.id}
+                style={{ marginTop: 10, width: "100%", padding: "8px 0", borderRadius: 10, background: CA.greenLight, color: CA.greenDark, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: completing === r.id ? 0.7 : 1 }}>
+                {completing === r.id ? "Completando..." : "Marcar completada"}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -3681,24 +3792,20 @@ const MessagesView = () => {
 };
 
 // ─── METRICS ───
-const MetricsView = () => {
+const MetricsView = ({ albergueId, token, metrics: propMetrics }) => {
   const [period, setPeriod] = useState("week");
-  const [apiMetrics, setApiMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [apiMetrics, setApiMetrics] = useState(propMetrics || null);
+  const [loading, setLoading] = useState(!propMetrics && !!albergueId);
   const periods = [{ key: "today", label: "Hoy" }, { key: "week", label: "Semana" }, { key: "month", label: "Mes" }, { key: "year", label: "Año" }];
 
   useEffect(() => {
-    const token = localStorage.getItem("rush_token");
-    if (!token) { setLoading(false); return; }
-    api.get("/owners/me", token)
-      .then(data => {
-        const albergueId = data.owner?.albergues?.[0]?.id;
-        if (!albergueId) { setLoading(false); return; }
-        return api.get(`/metrics/admin/${albergueId}`, token);
-      })
-      .then(data => { if (data) setApiMetrics(data.metrics); setLoading(false); })
+    if (propMetrics) { setApiMetrics(propMetrics); return; }
+    if (!albergueId || !token) { setLoading(false); return; }
+    setLoading(true);
+    api.get(`/metrics/admin/${albergueId}`, token)
+      .then(data => { if (data?.metrics) setApiMetrics(data.metrics); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [albergueId, propMetrics]);
 
   const dailyData = apiMetrics?.dailyRevenue || DAILY_REVENUE;
   const maxRev = Math.max(...dailyData.map(d => d.value), 1);
@@ -4047,6 +4154,9 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     name: "", address: "", zone: "", openTime: "00:00", closeTime: "24:00",
     rooms: [],
   });
+  const [albergueId, setAlbergueId] = useState(null);
+  const [adminReservations, setAdminReservations] = useState([]);
+  const [adminMetrics, setAdminMetrics] = useState(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -4078,6 +4188,36 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
     const t = setInterval(fetchUnread, 30000);
     return () => clearInterval(t);
   }, []);
+
+  // Cargar albergue, habitaciones, reservas y métricas al entrar al dashboard
+  useEffect(() => {
+    if (authState !== "dashboard") return;
+    const token = localStorage.getItem("rush_token");
+    if (!token) return;
+
+    api.get("/albergues/owner/me", token)
+      .then(data => {
+        if (!data.albergue) return;
+        const alb = data.albergue;
+        setAlbergueId(alb.id);
+        if (alb.rooms?.length > 0) {
+          setRooms(alb.rooms.map(normalizeRoom));
+        }
+        return Promise.all([
+          api.get(`/reservations/albergue/${alb.id}`, token),
+          api.get(`/metrics/admin/${alb.id}`, token),
+        ]);
+      })
+      .then(results => {
+        if (!results) return;
+        const [resData, metricsData] = results;
+        if (resData?.reservations) {
+          setAdminReservations(resData.reservations.map(normalizeReservation));
+        }
+        if (metricsData?.metrics) setAdminMetrics(metricsData.metrics);
+      })
+      .catch(() => {});
+  }, [authState]);
 
   // ── Auth / Onboarding Screens ──
   if (authState === "welcome") return (
@@ -4148,14 +4288,15 @@ function RushAdminApp({ onLogout, startAuth = "welcome" }) {
   );
 
   const renderPage = () => {
+    const token = localStorage.getItem("rush_token");
     switch (page) {
-      case "dashboard": return <DashboardView rooms={rooms} setRooms={setRooms} />;
-      case "reservations": return <ReservationsView />;
+      case "dashboard": return <DashboardView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} metrics={adminMetrics} />;
+      case "reservations": return <ReservationsView albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} />;
       case "messages": return <MessagesView />;
-      case "pricing": return <PricingView rooms={rooms} setRooms={setRooms} />;
-      case "metrics": return <MetricsView />;
+      case "pricing": return <PricingView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} />;
+      case "metrics": return <MetricsView albergueId={albergueId} token={token} metrics={adminMetrics} />;
       case "settings": return <SettingsView onLogout={onLogout} />;
-      default: return <DashboardView rooms={rooms} setRooms={setRooms} />;
+      default: return <DashboardView rooms={rooms} setRooms={setRooms} albergueId={albergueId} token={token} reservations={adminReservations} setReservations={setAdminReservations} metrics={adminMetrics} />;
     }
   };
 
@@ -4417,62 +4558,71 @@ const BarChart = ({ data, height = 160 }) => {
 };
 
 // ── DASHBOARD VIEW ──
-const SADashboardView = ({ requests, albergues }) => {
-  const pendingCount = requests.filter(r => r.status === "pending").length;
-  const activeCount = albergues.filter(a => a.status === "active").length;
-  const totalReservations = albergues.reduce((a, b) => a + b.reservations, 0);
-  const totalCommission = albergues.reduce((a, b) => a + b.commission, 0);
+const SADashboardView = ({ requests, albergues, apiMetrics, apiRevenue }) => {
+  const pendingCount = apiMetrics?.pendingVerifications ?? requests.filter(r => r.status === "pending").length;
+  const activeCount = apiMetrics?.activeAlbergues ?? albergues.filter(a => a.status === "active").length;
+  const totalReservations = apiMetrics?.totalReservations ?? albergues.reduce((a, b) => a + b.reservations, 0);
+  const monthCommission = apiMetrics?.monthCommission ?? albergues.reduce((a, b) => a + b.commission, 0);
+
+  const chartData = apiRevenue?.chart
+    ? apiRevenue.chart.map(m => ({ month: m.label, value: m.commission }))
+    : MONTHLY_REV;
+
+  const topAlbergues = apiRevenue?.topAlbergues?.length > 0
+    ? apiRevenue.topAlbergues
+    : [...albergues].sort((a, b) => b.commission - a.commission).slice(0, 5).map(a => ({ ...a, revenue: a.commission }));
+
+  const fmtMoney = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
 
   return (
     <div style={{ animation: "saFadeUp 0.4s ease" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        {apiMetrics && <span style={{ fontSize: 11, color: CSA.green, fontWeight: 600, padding: "4px 10px", background: CSA.greenLight, borderRadius: 8 }}>● En vivo</span>}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <Metric label="Ingresos del mes" value={`${(totalCommission / 1000000).toFixed(1)}M`} trend="up" trendVal="+24%" color={CSA.purple} />
-        <Metric label="Albergues activos" value={activeCount} trend="up" trendVal={`+6 este mes`} />
+        <Metric label="Comisiones del mes" value={`$${fmtMoney(monthCommission)}`} trend="up" trendVal="+24%" color={CSA.purple} />
+        <Metric label="Albergues activos" value={activeCount} trend="up" trendVal="" />
         <Metric label="Reservas totales" value={totalReservations.toLocaleString()} trend="up" trendVal="+31%" />
-        <Metric label="Solicitudes pendientes" value={pendingCount} color={pendingCount > 0 ? CSA.amber : CSA.text} />
+        <Metric label="Pendientes" value={pendingCount} color={pendingCount > 0 ? CSA.amber : CSA.text} />
       </div>
 
       <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px", marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <p style={{ fontSize: 16, fontWeight: 700, margin: 0, fontFamily: FONT_SA }}>Comisiones mensuales (15%)</p>
         </div>
-        <BarChart data={MONTHLY_REV} />
+        <BarChart data={chartData} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px" }}>
           <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Top albergues por comisión</p>
-          {[...albergues].sort((a, b) => b.commission - a.commission).slice(0, 5).map((a, i) => (
-            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < 4 ? `1px solid ${CSA.border}` : "none" }}>
+          {topAlbergues.map((a, i) => (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < topAlbergues.length - 1 ? `1px solid ${CSA.border}` : "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: CSA.purple, width: 20 }}>{i + 1}</span>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{a.name}</p>
-                  <p style={{ fontSize: 11, color: CSA.textSec, margin: 0 }}>{a.reservations} reservas</p>
+                  <p style={{ fontSize: 11, color: CSA.textSec, margin: 0 }}>{a.zone}</p>
                 </div>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: CSA.purple }}>${Math.round(a.commission / 1000)}k</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: CSA.purple }}>${fmtMoney(a.commission || Math.round((a.revenue || 0) * 0.15))}</span>
             </div>
           ))}
+          {topAlbergues.length === 0 && <p style={{ fontSize: 13, color: CSA.textSec, textAlign: "center", padding: 16 }}>Sin datos aún</p>}
         </div>
 
         <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px" }}>
-          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Actividad reciente</p>
-          {[
-            { text: "Suite Palermo recibió 12 reservas hoy", time: "Hace 1h", color: CSA.greenDark },
-            { text: "Hotel Devoto envió solicitud de registro", time: "Hace 3h", color: CSA.amber },
-            { text: "Express Zone verificó su código correctamente", time: "Hace 5h", color: CSA.greenDark },
-            { text: "Motel Azul fue suspendido por inactividad", time: "Hace 1 día", color: CSA.redDark },
-            { text: "Nuevo usuario registrado #12.480", time: "Hace 1 día", color: CSA.purple },
-          ].map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: i < 4 ? `1px solid ${CSA.border}` : "none" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, marginTop: 5, flexShrink: 0 }} />
+          <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Solicitudes recientes</p>
+          {requests.slice(0, 5).map((r, i) => (
+            <div key={r.id} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: i < Math.min(requests.length, 5) - 1 ? `1px solid ${CSA.border}` : "none" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.status === "verified" ? CSA.greenDark : r.status === "rejected" ? CSA.red : r.status === "code_sent" ? CSA.purple : CSA.amber, marginTop: 5, flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 13, margin: 0 }}>{item.text}</p>
-                <p style={{ fontSize: 11, color: CSA.textSec, margin: "2px 0 0" }}>{item.time}</p>
+                <p style={{ fontSize: 13, margin: 0 }}>{r.name} — {r.owner}</p>
+                <p style={{ fontSize: 11, color: CSA.textSec, margin: "2px 0 0" }}>{r.date} · {r.zone}</p>
               </div>
             </div>
           ))}
+          {requests.length === 0 && <p style={{ fontSize: 13, color: CSA.textSec, textAlign: "center", padding: 16 }}>Sin solicitudes</p>}
         </div>
       </div>
     </div>
@@ -4480,17 +4630,36 @@ const SADashboardView = ({ requests, albergues }) => {
 };
 
 // ── REQUESTS VIEW ──
-const RequestsView = ({ requests, setRequests }) => {
+const RequestsView = ({ requests, setRequests, token }) => {
   const [filter, setFilter] = useState("all");
   const [copiedId, setCopiedId] = useState(null);
+  const [loadingId, setLoadingId] = useState(null);
 
-  const handleGenCode = (id) => {
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "code_sent", code: genCode(), sentDate: "Ahora" } : r));
+  const handleGenCode = async (id) => {
+    setLoadingId(id);
+    try {
+      const data = await api.post(`/verification/${id}/generate-code`, {}, token);
+      const { code } = data;
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "code_sent", code, sentDate: "Ahora" } : r));
+    } catch (e) {
+      alert(e.message || "Error al generar código");
+    } finally {
+      setLoadingId(null);
+    }
   };
-  const handleReject = (id) => {
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "rejected" } : r));
+  const handleReject = async (id) => {
+    setLoadingId(id);
+    try {
+      await api.patch(`/verification/${id}/reject`, {}, token);
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "rejected" } : r));
+    } catch (e) {
+      alert(e.message || "Error al rechazar solicitud");
+    } finally {
+      setLoadingId(null);
+    }
   };
   const handleVerify = (id) => {
+    // Marcado manual local (el flujo real es que el dueño ingresa el código)
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: "verified" } : r));
   };
   const handleCopy = (id, code) => {
@@ -4550,12 +4719,12 @@ const RequestsView = ({ requests, setRequests }) => {
 
             {r.status === "pending" && (
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => handleGenCode(r.id)}
-                  style={{ padding: "8px 20px", borderRadius: 10, background: CSA.purple, color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_SA }}>
-                  Generar código
+                <button onClick={() => handleGenCode(r.id)} disabled={loadingId === r.id}
+                  style={{ padding: "8px 20px", borderRadius: 10, background: CSA.purple, color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_SA, opacity: loadingId === r.id ? 0.7 : 1 }}>
+                  {loadingId === r.id ? "Generando..." : "Generar código"}
                 </button>
-                <button onClick={() => handleReject(r.id)}
-                  style={{ padding: "8px 20px", borderRadius: 10, background: "transparent", color: CSA.red, border: `1.5px solid ${CSA.red}`, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                <button onClick={() => handleReject(r.id)} disabled={loadingId === r.id}
+                  style={{ padding: "8px 20px", borderRadius: 10, background: "transparent", color: CSA.red, border: `1.5px solid ${CSA.red}`, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", opacity: loadingId === r.id ? 0.7 : 1 }}>
                   Rechazar
                 </button>
               </div>
@@ -4667,46 +4836,64 @@ const AlberguesView = ({ albergues }) => {
 };
 
 // ── FINANCES VIEW ──
-const FinancesView = ({ albergues }) => {
-  const totalCommission = albergues.reduce((a, b) => a + b.commission, 0);
+const FinancesView = ({ albergues, apiRevenue }) => {
+  const totalCommission = apiRevenue?.totalCommission ?? albergues.reduce((a, b) => a + b.commission, 0);
+  const totalRevenue = apiRevenue?.totalRevenue ?? albergues.reduce((a, b) => a + b.commission, 0) / 0.15;
   const totalReservations = albergues.reduce((a, b) => a + b.reservations, 0);
-  const avgTicket = Math.round(totalCommission / totalReservations);
   const premiumCount = albergues.filter(a => a.plan === "premium").length;
+
+  const chartData = apiRevenue?.chart
+    ? apiRevenue.chart.map(m => ({ month: m.label, value: m.commission }))
+    : MONTHLY_REV;
+
+  const topAlbergues = apiRevenue?.topAlbergues?.length > 0
+    ? apiRevenue.topAlbergues
+    : [...albergues].filter(a => a.status === "active").sort((a, b) => b.commission - a.commission);
+
+  const maxCommission = Math.max(...topAlbergues.map(a => a.commission || 0), 1);
+  const fmtMoney = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
 
   return (
     <div style={{ animation: "saFadeUp 0.4s ease" }}>
+      {apiRevenue && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <span style={{ fontSize: 11, color: CSA.green, fontWeight: 600, padding: "4px 10px", background: CSA.greenLight, borderRadius: 8 }}>● En vivo</span>
+      </div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <Metric label="Comisiones totales" value={`${(totalCommission / 1000).toLocaleString()}k`} trend="up" trendVal="+24%" color={CSA.purple} />
-        <Metric label="Reservas procesadas" value={totalReservations.toLocaleString()} trend="up" trendVal="+31%" />
-        <Metric label="Ticket promedio" value={`${avgTicket.toLocaleString()}`} trend="up" trendVal="+8%" />
+        <Metric label="Comisiones 12 meses" value={`$${fmtMoney(totalCommission)}`} trend="up" trendVal="+24%" color={CSA.purple} />
+        <Metric label="Ingresos plataforma" value={`$${fmtMoney(Math.round(totalRevenue))}`} trend="up" trendVal="+31%" />
+        <Metric label="Albergues activos" value={albergues.filter(a => a.status === "active").length} trend="up" trendVal="" />
         <Metric label="Suscripciones premium" value={premiumCount} trend="up" trendVal="+2" color={CSA.purple} />
       </div>
 
       <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px", marginBottom: 20 }}>
         <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", fontFamily: FONT_SA }}>Evolución de comisiones (12 meses)</p>
-        <BarChart data={MONTHLY_REV} height={180} />
+        <BarChart data={chartData} height={180} />
       </div>
 
       <div style={{ background: CSA.card, borderRadius: 14, border: `1px solid ${CSA.border}`, padding: "20px 24px" }}>
         <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 14px", fontFamily: FONT_SA }}>Desglose por albergue</p>
-        {[...albergues].filter(a => a.status === "active").sort((a, b) => b.commission - a.commission).map((a, i) => (
-          <div key={a.id} style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>{a.name}</span>
-                <SABadge type={a.plan}>{a.plan === "premium" ? "Premium" : "Básico"}</SABadge>
+        {topAlbergues.length === 0 && <p style={{ fontSize: 13, color: CSA.textSec, textAlign: "center", padding: 16 }}>Sin datos aún</p>}
+        {topAlbergues.map((a, i) => {
+          const commission = a.commission || 0;
+          return (
+            <div key={a.id} style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{a.name}</span>
+                  {a.plan && <SABadge type={a.plan}>{a.plan === "premium" ? "Premium" : "Básico"}</SABadge>}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: CSA.purple }}>${fmtMoney(commission)}</span>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: CSA.purple }}>${Math.round(a.commission / 1000)}k</span>
+              <div style={{ height: 8, borderRadius: 4, background: CSA.bg, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", width: `${maxCommission > 0 ? Math.round((commission / maxCommission) * 100) : 0}%`, borderRadius: 4,
+                  background: i === 0 ? CSA.purple : i < 3 ? CSA.purpleMid : CSA.purple200, transition: "width 0.5s ease"
+                }} />
+              </div>
+              <p style={{ fontSize: 11, color: CSA.textSec, margin: "3px 0 0" }}>{a.zone}</p>
             </div>
-            <div style={{ height: 8, borderRadius: 4, background: CSA.bg, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", width: `${Math.round((a.commission / albergues[0].commission) * 100)}%`, borderRadius: 4,
-                background: i === 0 ? CSA.purple : i < 3 ? CSA.purpleMid : CSA.purple200, transition: "width 0.5s ease"
-              }} />
-            </div>
-            <p style={{ fontSize: 11, color: CSA.textSec, margin: "3px 0 0" }}>{a.reservations} reservas · {a.zone}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -4845,6 +5032,9 @@ const SAMetricsView = ({ albergues, requests }) => {
 function RushSuperAdminApp({ onLogout }) {
   const [page, setPage] = useState("dashboard");
   const [requests, setRequests] = useState(INIT_REQUESTS);
+  const [saAlbergues, setSaAlbergues] = useState(SA_ALBERGUES);
+  const [saMetrics, setSaMetrics] = useState(null);
+  const [saRevenue, setSaRevenue] = useState(null);
   const [showSANotifs, setShowSANotifs] = useState(false);
   const [saNotifs] = useState([
     { id: 1, text: "Nueva solicitud: Hotel Devoto", time: "Hace 10 min", read: false },
@@ -4853,17 +5043,34 @@ function RushSuperAdminApp({ onLogout }) {
     { id: 4, text: "Nuevo albergue registrado en Quilmes", time: "Ayer", read: true },
   ]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("rush_token");
+    if (!token) return;
+    Promise.all([
+      api.get("/verification", token),
+      api.get("/superadmin/albergues", token),
+      api.get("/superadmin/metrics", token),
+      api.get("/superadmin/revenue", token),
+    ]).then(([reqData, albData, metricsData, revenueData]) => {
+      if (reqData?.requests) setRequests(reqData.requests.map(normalizeVerificationRequest));
+      if (albData?.albergues) setSaAlbergues(albData.albergues.map(normalizeSAAlbergue));
+      if (metricsData?.metrics) setSaMetrics(metricsData.metrics);
+      if (revenueData) setSaRevenue(revenueData);
+    }).catch(() => {});
+  }, []);
+
   const pageTitle = { dashboard: "Dashboard", requests: "Solicitudes", albergues: "Albergues", finances: "Finanzas", metrics: "Métricas" }[page];
   const pendingCount = requests.filter(r => r.status === "pending").length;
 
   const renderPage = () => {
+    const token = localStorage.getItem("rush_token");
     switch (page) {
-      case "dashboard": return <SADashboardView requests={requests} albergues={SA_ALBERGUES} />;
-      case "requests": return <RequestsView requests={requests} setRequests={setRequests} />;
-      case "albergues": return <AlberguesView albergues={SA_ALBERGUES} />;
-      case "finances": return <FinancesView albergues={SA_ALBERGUES} />;
-      case "metrics": return <SAMetricsView albergues={SA_ALBERGUES} requests={requests} />;
-      default: return <SADashboardView requests={requests} albergues={SA_ALBERGUES} />;
+      case "dashboard": return <SADashboardView requests={requests} albergues={saAlbergues} apiMetrics={saMetrics} apiRevenue={saRevenue} />;
+      case "requests": return <RequestsView requests={requests} setRequests={setRequests} token={token} />;
+      case "albergues": return <AlberguesView albergues={saAlbergues} />;
+      case "finances": return <FinancesView albergues={saAlbergues} apiRevenue={saRevenue} />;
+      case "metrics": return <SAMetricsView albergues={saAlbergues} requests={requests} />;
+      default: return <SADashboardView requests={requests} albergues={saAlbergues} apiMetrics={saMetrics} apiRevenue={saRevenue} />;
     }
   };
 
