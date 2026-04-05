@@ -3827,16 +3827,17 @@ const HabitacionesView = ({ rooms, setRooms, albergueId, token }) => {
   const [error, setError] = useState(null);
 
   // Load photos for all rooms
-  React.useEffect(() => {
+  useEffect(() => {
     if (!rooms || rooms.length === 0) return;
     const loadPhotos = async () => {
       const map = {};
-      await Promise.all(rooms.map(async (r) => {
-        try {
-          const data = await api.get(`/photos/albergue/${albergueId}`, token);
-          map[r.id] = (data.photos || []).filter(p => p.room_id === r.id);
-        } catch {}
-      }));
+      try {
+        const data = await api.get(`/photos/albergue/${albergueId}`, token);
+        const allPhotos = data.photos || [];
+        rooms.forEach(r => {
+          map[r.id] = allPhotos.filter(p => p.room_id === r.id);
+        });
+      } catch {}
       setRoomPhotos(map);
     };
     loadPhotos();
